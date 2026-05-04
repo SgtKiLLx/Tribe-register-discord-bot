@@ -1,14 +1,10 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
 
-// Use the connection string from your .env file
-const connectionString = process.env.DATABASE_URL!;
+// This uses Neon's special HTTP driver which works perfectly on Render
+const sql = neon(process.env.DATABASE_URL!);
 
-// Disable prefetch as it causes issues with some cloud providers
-const client = postgres(connectionString, { prepare: false });
+export const db = drizzle(sql, { schema });
 
-export const db = drizzle(client, { schema });
-
-// Export all schema/tables
 export * from "./schema";
