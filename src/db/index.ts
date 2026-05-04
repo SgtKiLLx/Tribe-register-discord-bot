@@ -6,5 +6,5 @@ const sql = neon(process.env.DATABASE_URL!);
 
 export const db = drizzle(sql, { schema });
 
-// Export all schema/tables so your index.ts can find them
+// Export all schema/tables so index.ts can find them
 export * from "./schema";
