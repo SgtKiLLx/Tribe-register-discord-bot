@@ -11,7 +11,7 @@
     "discord.js": "^14.14.1",
     "drizzle-orm": "^0.29.3",
     "dotenv": "^16.4.1",
-    "postgres": "^3.4.3"
+    "postgres": "^3.4.4"
   },
   "devDependencies": {
     "@types/node": "^20.11.5",
