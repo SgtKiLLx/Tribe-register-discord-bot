@@ -387,3 +387,16 @@ export async function startBot() {
 if (process.env.NODE_ENV !== 'test') {
   startBot();
 }
+
+import http from "http";
+
+// This creates a tiny web server to keep Render happy
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Tribe Bot is Running!");
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Web server listening on port ${PORT}`);
+});
