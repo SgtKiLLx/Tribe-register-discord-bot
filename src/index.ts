@@ -28,6 +28,21 @@ if (!applicationId) throw new Error("DISCORD_APPLICATION_ID is required");
 // 1. Slash Command Definitions
 const commands = [
   new SlashCommandBuilder()
+    .setName("my-tribe")
+    .setDescription("View your registration details"),
+
+  new SlashCommandBuilder()
+    .setName("join")
+    .setDescription("Join an existing tribe that is already registered")
+    .addStringOption((opt) =>
+      opt
+        .setName("tribe_name")
+        .setDescription("The name of the tribe you want to join")
+        .setRequired(true)
+        .setAutocomplete(true) // This makes it easy for users to find tribes
+    ),
+  
+  new SlashCommandBuilder()
     .setName("register")
     .setDescription("Register your tribe — submit your tribe name, IGN, and Xbox Gamertag"),
 
