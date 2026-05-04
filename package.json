@@ -1,5 +1,5 @@
 {
-  "name": "tribe-registration-bot",
+  "name": "Overseer",
   "version": "1.0.0",
   "description": "Discord bot for tribe registration",
   "main": "src/index.ts",
