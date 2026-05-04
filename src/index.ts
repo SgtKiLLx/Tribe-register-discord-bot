@@ -92,7 +92,7 @@ async function registerCommands() {
     });
     logger.info("Slash commands registered.");
   } catch (err) {
-    logger.error({ err }, "Failed to register slash commands");
+    logger.error(err instanceof Error ? err.message : String(err), "Failed to register slash commands");
   }
 }
 
@@ -163,7 +163,7 @@ async function postToStaffLog(
       await send.send({ content, embeds: [embed] });
     }
   } catch (err) {
-    logger.warn({ err, guildId }, "Could not post to staff log channel");
+    logger.warn(err instanceof Error ? err.message : String(err), "Could not post to staff log channel");
   }
 }
 
@@ -256,7 +256,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
         await postToStaffLog(client, interaction.guildId, embed, true);
       }
     } catch (err) {
-      logger.error({ err }, "Failed to save tribe registration");
+      logger.error(err instanceof Error ? err.message : String(err), "Failed to save tribe registration");
       await interaction.editReply({ content: "❌ Something went wrong saving your registration. Please try again." });
     }
     return;
@@ -369,8 +369,12 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
 });
 
 // 5. Crash Prevention (Crucial for Hosting)
-process.on("unhandledRejection", (error) => logger.error(error, "Unhandled Rejection"));
-process.on("uncaughtException", (error) => logger.error(error, "Uncaught Exception"));
+process.on("unhandledRejection", (error: unknown) => {
+  logger.error(error instanceof Error ? error.message : String(error), "Unhandled Rejection");
+});
+process.on("uncaughtException", (error: Error) => {
+  logger.error(error.message, "Uncaught Exception");
+});
 
 // 6. Start the Bot
 export async function startBot() {
