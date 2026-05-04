@@ -2,23 +2,19 @@
   "name": "tribe-registration-bot",
   "version": "1.0.0",
   "description": "Discord bot for tribe registration",
-  "main": "dist/index.js",
+  "main": "src/index.ts",
   "scripts": {
-    "start": "node dist/index.js",
-    "build": "tsc",
-    "dev": "ts-node src/index.ts"
+    "start": "ts-node src/index.ts",
+    "build": "tsc"
   },
   "dependencies": {
     "discord.js": "^14.15.2",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.30.10",
     "postgres": "^3.4.4",
-    "@neondatabase/serverless": "^0.9.3"
-  },
-  "devDependencies": {
-    "@types/node": "^20.12.7",
+    "@neondatabase/serverless": "^0.9.3",
     "typescript": "^5.4.5",
     "ts-node": "^10.9.2",
-    "drizzle-kit": "^0.21.0"
+    "@types/node": "^20.12.7"
   }
 }
