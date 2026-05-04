@@ -370,15 +370,15 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
 
 // 5. Crash Prevention (Crucial for Hosting)
 process.on("unhandledRejection", (error: unknown) => {
-  if (error instanceof Error) {
-    logger.error(error.message, "Unhandled Rejection");
-  } else {
-    logger.error(String(error), "Unhandled Rejection");
-  }
+  logger.error(
+    { err: error instanceof Error ? error : String(error) },
+    "Unhandled Rejection"
+  );
 });
 process.on("uncaughtException", (error: Error) => {
-  logger.error(error.message, "Uncaught Exception");
+  logger.error({ err: error }, "Uncaught Exception");
 });
+
 
 
 // 6. Start the Bot
