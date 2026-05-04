@@ -369,20 +369,21 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
 });
 
 
-// 5. Crash Prevention (Simplified for Build)
-process.on("unhandledRejection", (err: any) => {
-  logger.error(err, "Unhandled Rejection");
+// 5. Crash Prevention (Simplified for Railway build)
+process.on("unhandledRejection", (error: any) => {
+  console.error("Unhandled Rejection:", error);
 });
 
-process.on("uncaughtException", (err: any) => {
-  logger.error(err, "Uncaught Exception");
+process.on("uncaughtException", (error: any) => {
+  console.error("Uncaught Exception:", error);
 });
 
-// 6. Start the Bot
 export async function startBot() {
   await registerCommands();
   await client.login(token);
 }
 
-// Actually call the function to start
-startBot();
+// Start the bot
+if (process.env.NODE_ENV !== 'test') {
+  startBot();
+}
