@@ -12,7 +12,8 @@
     "discord.js": "^14.15.2",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.30.10",
-    "postgres": "^3.4.4"
+    "postgres": "^3.4.4",
+    "@neondatabase/serverless": "^0.9.3"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
