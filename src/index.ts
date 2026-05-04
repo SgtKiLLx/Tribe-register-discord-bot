@@ -197,6 +197,32 @@ client.once(Events.ClientReady, (c) => {
 // 4. Interaction Listener
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   // --- /register ---
+  if (interaction.isChatInputCommand() && interaction.commandName === "my-tribe") {
+    const [reg] = await db
+      .select()
+      .from(tribeRegistrationsTable)
+      .where(eq(tribeRegistrationsTable.discordUserId, interaction.user.id));
+
+    if (!reg) {
+      return interaction.reply({ 
+        content: "You aren't registered yet! Use `/register` to create a tribe or `/join` to join one.", 
+        ephemeral: true 
+      });
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle(`🪖 Your Profile: ${reg.ign}`)
+      .setColor(Colors.Blue)
+      .addFields(
+        { name: "Tribe", value: reg.tribeName, inline: true },
+        { name: "Xbox Gamertag", value: reg.xboxGamertag, inline: true },
+        { name: "Joined At", value: reg.createdAt.toLocaleDateString(), inline: true }
+      )
+      .setThumbnail(interaction.user.displayAvatarURL());
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+  }
+  
   if (interaction.isChatInputCommand() && interaction.commandName === "register") {
     const modal = new ModalBuilder()
       .setCustomId("tribe_register_modal")
