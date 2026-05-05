@@ -232,15 +232,53 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     }
 
     if (interaction.commandName === "post-info") {
-        const embed = new EmbedBuilder().setTitle("🔵 OVERSEER | Registration").setDescription("Initialize protocol via buttons.").setColor(OVERSEER_COLOR);
+        const target: any = interaction.options.getChannel("channel") ?? interaction.channel;
+        
+        const embed = new EmbedBuilder()
+            .setTitle("🛡️ OVERSEER | TRIBE INITIALIZATION PROTOCOL")
+            .setThumbnail(client.user?.displayAvatarURL() || null) // Shows the bot's cyan icon
+            .setColor(OVERSEER_COLOR)
+            .setDescription(
+                "**System Online.** Welcome, Survivor. To access the private sectors of this server, you must initialize your tribe signature within the Overseer database."
+            )
+            .addFields(
+                { 
+                    name: "📝 CREATE NEW TRIBE", 
+                    value: "Select this if you are the **Tribe Leader**. This protocol will spawn a private text headquarters and initialize your global roster.",
+                    inline: false 
+                },
+                { 
+                    name: "🤝 JOIN EXISTING TRIBE", 
+                    value: "Select this if your tribe is **already registered**. You will be synced to your team's roster and granted access to their private headquarters.",
+                    inline: false 
+                },
+                {
+                    name: "⚙️ AUTOMATED FEATURES",
+                    value: "• **Nickname Sync:** Your Discord name will automatically update to `[Tribe] Name`.\n• **Private HQ:** Gain access to a secure channel for your tribe.\n• **Roster Tracking:** View all registered members in one click.",
+                    inline: false
+                }
+            )
+            .setFooter({ text: "Overseer v1.0 | Authorized Personnel Only", iconURL: client.user?.displayAvatarURL() || undefined })
+            .setTimestamp();
+
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder().setCustomId("btn_start_register").setLabel("Create Tribe").setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId("btn_start_join").setLabel("Join Tribe").setStyle(ButtonStyle.Primary)
+            new ButtonBuilder()
+                .setCustomId("btn_start_register")
+                .setLabel("Create Tribe")
+                .setStyle(ButtonStyle.Success)
+                .setEmoji("📝"),
+            new ButtonBuilder()
+                .setCustomId("btn_start_join")
+                .setLabel("Join Tribe")
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji("🤝")
         );
-        const target: any = interaction.channel;
-        await target.send({ embeds: [embed], components: [row] });
-        return interaction.reply({ content: "Interface deployed.", ephemeral: true });
-    }
+
+        if (target && typeof target.send === 'function') {
+            await target.send({ embeds: [embed], components: [row] });
+            return interaction.reply({ content: "Overseer Interface successfully deployed.", ephemeral: true });
+        }
+    
 
     if (interaction.commandName === "join") {
         const tribeName = interaction.options.getString("tribe_name", true);
