@@ -17,6 +17,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
+  ActivityType,
 } from "discord.js";
 import { db, tribeRegistrationsTable, guildConfigTable } from "./db";
 import { eq } from "drizzle-orm";
@@ -25,33 +26,46 @@ import http from "http";
 
 const token = process.env.DISCORD_BOT_TOKEN;
 const applicationId = process.env.DISCORD_APPLICATION_ID;
+const OVERSEER_COLOR = 0x00ffff; // Cyan color to match your icon
 
 if (!token || !applicationId) {
-  console.error("Missing Environment Variables");
+  console.error("CRITICAL ERROR: Missing Environment Variables");
   process.exit(1);
 }
 
+// 1. Slash Command Definitions
 const commands = [
   new SlashCommandBuilder()
     .setName("setup-category")
-    .setDescription("Set the category for tribe channels")
-    .addChannelOption(opt => opt.setName("category").setDescription("The Category").addChannelTypes(ChannelType.GuildCategory).setRequired(true))
+    .setDescription("Set the category for new tribe channels")
+    .addChannelOption(opt => opt.setName("category").setDescription("Target Category").addChannelTypes(ChannelType.GuildCategory).setRequired(true))
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("register").setDescription("Register a new tribe"),
+
+  new SlashCommandBuilder().setName("register").setDescription("Initialize a new tribe signature"),
+
   new SlashCommandBuilder()
     .setName("join")
-    .setDescription("Join an existing tribe")
-    .addStringOption(opt => opt.setName("tribe_name").setDescription("Tribe name").setAutocomplete(true).setRequired(true)),
-  new SlashCommandBuilder().setName("my-tribe").setDescription("View your tribe profile"),
-  new SlashCommandBuilder().setName("post-info").setDescription("Post registration buttons").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDescription("Sync with an existing tribe signature")
+    .addStringOption(opt => opt.setName("tribe_name").setDescription("Search Tribe Database").setAutocomplete(true).setRequired(true)),
+
+  new SlashCommandBuilder().setName("my-tribe").setDescription("View your survivor profile"),
+
+  new SlashCommandBuilder().setName("post-info").setDescription("Deploy Overseer Registration Interface").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
   new SlashCommandBuilder()
     .setName("setup")
-    .setDescription("Setup admin roles and logs")
+    .setDescription("Configure Overseer Intelligence Feed")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addRoleOption(o => o.setName("role").setDescription("Admin Role").setRequired(true))
-    .addChannelOption(o => o.setName("channel").setDescription("Log Channel").setRequired(true)),
+    .addChannelOption(o => o.setName("channel").setDescription("Staff Log Channel").setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName("list-tribes")
+    .setDescription("View all registered tribes in the database")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 ];
 
+// 2. Helper Functions
 async function postToStaffLog(guildId: string, embed: EmbedBuilder) {
   try {
     const [config] = await db.select().from(guildConfigTable).where(eq(guildConfigTable.guildId, guildId)).limit(1);
@@ -66,13 +80,12 @@ async function postToStaffLog(guildId: string, embed: EmbedBuilder) {
 }
 
 function getTribeDashboard(tribeName: string) {
-    const embed = new EmbedBuilder()
-        .setTitle(`💠 OVERSEER | Tribe: ${tribeName}`)
-        .setDescription("Tribe channel initialized. All registered survivors have been granted access.")
-        .setColor(0x00ffff)
-        .setFooter({ text: "Overseer | Monitoring Roster..." });
-    // ... keep buttons as is
-}
+  const embed = new EmbedBuilder()
+    .setTitle(`💠 OVERSEER | Tribe: ${tribeName}`)
+    .setDescription("**Private Tribe Channel Initialized.**\nUse the buttons below to manage your roster. New members joining via the Overseer will be granted access automatically.")
+    .setColor(OVERSEER_COLOR)
+    .setFooter({ text: "Overseer v1.0 | Awaiting Roster Updates..." });
+
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId(`view_roster:${tribeName}`).setLabel("View Roster").setStyle(ButtonStyle.Secondary).setEmoji("📜"),
     new ButtonBuilder().setCustomId(`leave_tribe`).setLabel("Leave Tribe").setStyle(ButtonStyle.Danger).setEmoji("🚪")
@@ -80,10 +93,19 @@ function getTribeDashboard(tribeName: string) {
   return { embeds: [embed], components: [row] };
 }
 
+// 3. Client Setup
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
+client.once(Events.ClientReady, (c) => {
+  logger.info({ tag: c.user.tag }, "Overseer System Online");
+  c.user.setActivity('the Arks', { type: ActivityType.Watching });
+});
+
+// 4. Interaction Listener
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
-  if (interaction.isAutocomplete()) {
+
+  // --- Autocomplete for /join ---
+  if (interaction.isAutocomplete() && interaction.commandName === "join") {
     try {
       const tribes = await db.select({ name: tribeRegistrationsTable.tribeName }).from(tribeRegistrationsTable).groupBy(tribeRegistrationsTable.tribeName);
       const focusedValue = interaction.options.getFocused().toLowerCase();
@@ -93,63 +115,91 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     return;
   }
 
+  // --- Button Handlers ---
   if (interaction.isButton()) {
     if (interaction.customId === "btn_start_register") {
-      const modal = new ModalBuilder().setCustomId("tribe_register_modal").setTitle("Register New Tribe");
+      const modal = new ModalBuilder().setCustomId("tribe_register_modal").setTitle("Register New Tribe Signature");
       modal.addComponents(
         new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("tribe_name").setLabel("Tribe Name").setStyle(TextInputStyle.Short).setRequired(true)),
-        new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("ign").setLabel("IGN").setStyle(TextInputStyle.Short).setRequired(true)),
+        new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("ign").setLabel("Your In-Game Name").setStyle(TextInputStyle.Short).setRequired(true)),
         new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("xbox").setLabel("Xbox Gamertag").setStyle(TextInputStyle.Short).setRequired(true))
       );
       return interaction.showModal(modal);
     }
+
     if (interaction.customId === "btn_start_join") {
-      const modal = new ModalBuilder().setCustomId("btn_join_modal").setTitle("Join Tribe");
+      const modal = new ModalBuilder().setCustomId("btn_join_modal").setTitle("Join Existing Tribe Signature");
       modal.addComponents(
-        new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("tribe_name").setLabel("Exact Tribe Name").setStyle(TextInputStyle.Short).setRequired(true)),
-        new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("ign").setLabel("IGN").setStyle(TextInputStyle.Short).setRequired(true)),
-        new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("xbox").setLabel("Xbox").setStyle(TextInputStyle.Short).setRequired(true))
+        new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("tribe_name").setLabel("Exact Tribe Name").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("Must match registration exactly")),
+        new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("ign").setLabel("Your In-Game Name").setStyle(TextInputStyle.Short).setRequired(true)),
+        new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("xbox").setLabel("Xbox Gamertag").setStyle(TextInputStyle.Short).setRequired(true))
       );
       return interaction.showModal(modal);
     }
+
     if (interaction.customId.startsWith("view_roster:")) {
       const tribeName = interaction.customId.split(":")[1];
       const members = await db.select().from(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.tribeName, tribeName));
-      const list = members.map(m => `• **${m.ign}** (<@${m.discordUserId}>)`).join("\n") || "No members.";
-      return interaction.reply({ content: `**${tribeName} Roster:**\n${list}`, ephemeral: true });
+      const list = members.map(m => `• **${m.ign}** (<@${m.discordUserId}>)`).join("\n") || "Database empty.";
+      return interaction.reply({ content: `📜 **${tribeName} Roster:**\n${list}`, ephemeral: true });
     }
+
     if (interaction.customId === "leave_tribe") {
-        await db.delete(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.discordUserId, interaction.user.id));
-        return interaction.reply({ content: "You left the tribe records. Ask an admin to remove you from the channel.", ephemeral: true });
+      await db.delete(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.discordUserId, interaction.user.id));
+      return interaction.reply({ content: "Survivor signature removed from database. Request staff to revoke channel permissions.", ephemeral: true });
     }
   }
 
+  // --- Slash Command Handlers ---
   if (interaction.isChatInputCommand()) {
     if (interaction.commandName === "setup-category") {
       const category = interaction.options.getChannel("category", true);
       await db.insert(guildConfigTable).values({ guildId: interaction.guildId!, tribeCategoryId: category.id }).onConflictDoUpdate({ target: guildConfigTable.guildId, set: { tribeCategoryId: category.id } });
-      return interaction.reply(`✅ Tribe channels linked to **${category.name}**`);
+      return interaction.reply(`✅ **Overseer Updated.** Tribe channels will now spawn in **${category.name}**.`);
     }
+
     if (interaction.commandName === "post-info") {
-      const embed = new EmbedBuilder().setTitle("🔵 OVERSEER | Tribe Management System").setDescription("**System Online.**\n\nWelcome, Survivor. Please choose an initialization protocol below to begin your tribe integration.\n\n" +
-        "**[Register]** — Initialize a new tribe signature.\n" +
-        "**[Join]** — Sync with an existing tribe signature.").setColor(0x00ffff);
+      const embed = new EmbedBuilder()
+        .setTitle("🔵 OVERSEER | Initialization Protocol")
+        .setDescription("**System Online.** Welcome, Survivor. Select a protocol below to begin integration.")
+        .setColor(OVERSEER_COLOR)
+        .addFields(
+          { name: "📝 Create Tribe", value: "Initialize a new tribe and private channel.", inline: true },
+          { name: "🤝 Join Tribe", value: "Sync with an existing tribe roster.", inline: true }
+        );
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setCustomId("btn_start_register").setLabel("Create Tribe").setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId("btn_start_join").setLabel("Join Tribe").setStyle(ButtonStyle.Primary)
+        new ButtonBuilder().setCustomId("btn_start_register").setLabel("Create Tribe").setStyle(ButtonStyle.Success).setEmoji("📝"),
+        new ButtonBuilder().setCustomId("btn_start_join").setLabel("Join Tribe").setStyle(ButtonStyle.Primary).setEmoji("🤝")
       );
       const target: any = interaction.channel;
       await target.send({ embeds: [embed], components: [row] });
-      return interaction.reply({ content: "Posted!", ephemeral: true });
+      return interaction.reply({ content: "Overseer Interface Deployed.", ephemeral: true });
     }
+
+    if (interaction.commandName === "my-tribe") {
+      const [reg] = await db.select().from(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.discordUserId, interaction.user.id)).limit(1);
+      if (!reg) return interaction.reply({ content: "No signature found. Use `/register` or click a button.", ephemeral: true });
+      const embed = new EmbedBuilder().setTitle(`👤 Survivor: ${reg.ign}`).setColor(OVERSEER_COLOR).addFields({ name: "Tribe", value: reg.tribeName, inline: true }, { name: "Xbox", value: reg.xboxGamertag, inline: true });
+      return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
     if (interaction.commandName === "setup") {
-        const role = interaction.options.getRole("role", true);
-        const channel = interaction.options.getChannel("channel", true);
-        await db.insert(guildConfigTable).values({ guildId: interaction.guildId!, adminRoleIds: role.id, staffLogChannelId: channel.id }).onConflictDoUpdate({ target: guildConfigTable.guildId, set: { adminRoleIds: role.id, staffLogChannelId: channel.id } });
-        return interaction.reply("✅ Setup saved!");
+      const role = interaction.options.getRole("role", true);
+      const channel = interaction.options.getChannel("channel", true);
+      await db.insert(guildConfigTable).values({ guildId: interaction.guildId!, adminRoleIds: role.id, staffLogChannelId: channel.id }).onConflictDoUpdate({ target: guildConfigTable.guildId, set: { adminRoleIds: role.id, staffLogChannelId: channel.id } });
+      return interaction.reply("✅ Overseer Intelligence Feed configured.");
+    }
+
+    if (interaction.commandName === "list-tribes") {
+        const regs = await db.select().from(tribeRegistrationsTable).orderBy(tribeRegistrationsTable.tribeName);
+        if (regs.length === 0) return interaction.reply({ content: "Database empty.", ephemeral: true });
+        const embed = new EmbedBuilder().setTitle("Global Tribe Database").setColor(OVERSEER_COLOR);
+        regs.slice(0, 25).forEach(r => embed.addFields({ name: `[${r.tribeName}] ${r.ign}`, value: `Xbox: ${r.xboxGamertag} | <@${r.discordUserId}>`, inline: false }));
+        return interaction.reply({ embeds: [embed], ephemeral: true });
     }
   }
 
+  // --- Modal Submissions ---
   if (interaction.isModalSubmit()) {
     const isJoin = interaction.customId === "btn_join_modal";
     const tribeName = interaction.fields.getTextInputValue("tribe_name").trim();
@@ -185,19 +235,23 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
           }
         }
       }
+
       await db.insert(tribeRegistrationsTable).values({ tribeName, ign, xboxGamertag: xbox, discordUserId: interaction.user.id, discordUsername: interaction.user.username, channelId, isOwner: !isJoin });
-      await interaction.editReply(`✅ Success! Joined **${tribeName}**. ${channelId ? `Go to <#${channelId}>` : ''}`);
-      const log = new EmbedBuilder().setTitle("New Reg").setDescription(`<@${interaction.user.id}> ${isJoin ? 'joined' : 'created'} **${tribeName}**`).setColor(Colors.Green);
+      await interaction.editReply(`✅ **Initializaton Successful.** Signature stored for **${tribeName}**. ${channelId ? `Check <#${channelId}>` : ''}`);
+      
+      const log = new EmbedBuilder().setTitle("Overseer Alert").setDescription(`<@${interaction.user.id}> ${isJoin ? 'synced with' : 'initialized'} **${tribeName}**`).setColor(OVERSEER_COLOR).setTimestamp();
       await postToStaffLog(interaction.guildId!, log);
     } catch (e) {
       console.error(e);
-      await interaction.editReply("❌ Error. Check if you are already registered.");
+      await interaction.editReply("❌ **Protocol Failure.** Ensure you are not already registered.");
     }
   }
 });
 
-http.createServer((_, res) => { res.writeHead(200); res.end("OK"); }).listen(process.env.PORT || 3000);
+// 5. Keep Alive Web Server
+http.createServer((_, res) => { res.writeHead(200); res.end("Overseer Online"); }).listen(process.env.PORT || 3000);
 
+// 6. Startup
 async function start() {
   const rest = new REST({ version: "10" }).setToken(token!);
   await rest.put(Routes.applicationCommands(applicationId!), { body: commands.map(c => c.toJSON()) });
