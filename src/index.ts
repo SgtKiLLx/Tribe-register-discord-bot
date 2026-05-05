@@ -73,16 +73,77 @@ function getTribeDashboard(tribeName: string) {
 
 // 1. Commands
 const commands = [
-  new SlashCommandBuilder().setName("help").setDescription("View Overseer manual"),
-  new SlashCommandBuilder().setName("register").setDescription("Register a new tribe"),
-  new SlashCommandBuilder().setName("my-tribe").setDescription("View your profile"),
-  new SlashCommandBuilder().setName("leave-tribe").setDescription("Exit current tribe"),
-  new SlashCommandBuilder().setName("join").setDescription("Join existing tribe").addStringOption(o => o.setName("tribe_name").setAutocomplete(true).setRequired(true)),
-  new SlashCommandBuilder().setName("kick-member").setDescription("Remove player (Staff)").addUserOption(o => o.setName("target").setRequired(true)).setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
-  new SlashCommandBuilder().setName("setup-category").setDescription("Set tribe category").addChannelOption(o => o.setName("category").addChannelTypes(ChannelType.GuildCategory).setRequired(true)).setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("post-info").setDescription("Post registration buttons").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("setup").setDescription("Setup logs/roles").setDefaultMemberPermissions(PermissionFlagsBits.Administrator).addRoleOption(o => o.setName("role").setRequired(true)).addChannelOption(o => o.setName("channel").setRequired(true)),
-  new SlashCommandBuilder().setName("list-tribes").setDescription("List global database").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+  new SlashCommandBuilder()
+    .setName("help")
+    .setDescription("View the Overseer command manual"),
+
+  new SlashCommandBuilder()
+    .setName("register")
+    .setDescription("Initialize a new tribe signature"),
+
+  new SlashCommandBuilder()
+    .setName("my-tribe")
+    .setDescription("View your current survivor profile"),
+
+  new SlashCommandBuilder()
+    .setName("leave-tribe")
+    .setDescription("Exit your current tribe and revoke access to the private channel"),
+  
+  new SlashCommandBuilder()
+    .setName("join")
+    .setDescription("Sync with an existing tribe signature")
+    .addStringOption(opt => 
+      opt.setName("tribe_name")
+        .setDescription("The name of the tribe you wish to join") // Fixed
+        .setAutocomplete(true)
+        .setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("kick-member")
+    .setDescription("Remove a survivor from their tribe (Staff Only)")
+    .addUserOption(opt => 
+      opt.setName("target")
+        .setDescription("The survivor to remove from the database") // Fixed
+        .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+
+  new SlashCommandBuilder()
+    .setName("setup-category")
+    .setDescription("Set the category for new tribe channels")
+    .addChannelOption(opt => 
+      opt.setName("category")
+        .setDescription("The Discord Category to spawn channels in") // Fixed
+        .addChannelTypes(ChannelType.GuildCategory)
+        .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
+    .setName("post-info")
+    .setDescription("Deploy Overseer Registration Interface")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
+    .setName("setup")
+    .setDescription("Configure Overseer Intelligence Feed")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addRoleOption(o => 
+      o.setName("role")
+       .setDescription("The role allowed to use staff commands") // Fixed
+       .setRequired(true)
+    )
+    .addChannelOption(o => 
+      o.setName("channel")
+       .setDescription("The channel where logs will be sent") // Fixed
+       .setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("list-tribes")
+    .setDescription("View all registered tribes in the global database")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 ];
 
 // 2. Client Init
