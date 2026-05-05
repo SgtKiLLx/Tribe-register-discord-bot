@@ -48,15 +48,15 @@ function getTribeDashboard(tribeName: string) {
 // 1. Commands
 const commands = [
   new SlashCommandBuilder().setName("help").setDescription("View the Overseer manual"),
-  new SlashCommandBuilder().setName("post-info").setDescription("Deploy Registration Interface").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("post-support").setDescription("Deploy Support Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("post-alpha-terminal").setDescription("Deploy Alpha Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+  new SlashCommandBuilder().setName("post-info").setDescription("Deploy Tribe Registration Interface").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+  new SlashCommandBuilder().setName("post-support").setDescription("Deploy Support Ticket Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+  new SlashCommandBuilder().setName("post-alpha-terminal").setDescription("Deploy Alpha Claim Interface").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   new SlashCommandBuilder().setName("post-recruitment").setDescription("Deploy Recruitment Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("lft").setDescription("Post recruitment profile"),
-  new SlashCommandBuilder().setName("my-tribe").setDescription("View your profile"),
-  new SlashCommandBuilder().setName("leave-tribe").setDescription("Exit tribe"),
-  new SlashCommandBuilder().setName("list-tribes").setDescription("View global DB").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("setup").setDescription("Configure Overseer")
+  new SlashCommandBuilder().setName("lft").setDescription("Post a recruitment profile"),
+  new SlashCommandBuilder().setName("my-tribe").setDescription("View your survivor profile"),
+  new SlashCommandBuilder().setName("leave-tribe").setDescription("Exit current tribe"),
+  new SlashCommandBuilder().setName("list-tribes").setDescription("View global database").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+  new SlashCommandBuilder().setName("setup").setDescription("Configure Overseer protocols")
     .addRoleOption(o => o.setName("role").setDescription("Staff Role").setRequired(true))
     .addChannelOption(o => o.setName("logs").setDescription("Logs").setRequired(true))
     .addChannelOption(o => o.setName("welcome").setDescription("Welcome").setRequired(true))
@@ -68,11 +68,11 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 ];
 
-// 2. Client
+// 2. Client Setup
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages] });
 
 client.once(Events.ClientReady, async (c) => {
-  console.log(`Overseer Live: ${c.user.tag}`);
+  console.log(`Overseer System Online: ${c.user.tag}`);
   await refreshOverseerStatus(c);
 });
 
@@ -87,7 +87,7 @@ client.on(Events.GuildMemberAdd, async (m) => {
     } catch (e) { console.error("Welcome fail"); }
 });
 
-// 3. Interactions
+// 3. Interaction Listener
 client.on(Events.InteractionCreate, async (i: Interaction) => {
   if (i.isAutocomplete() && i.commandName === "join") {
     const tribes = await db.select({ name: tribeRegistrationsTable.tribeName }).from(tribeRegistrationsTable);
@@ -100,7 +100,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
     
     if (i.customId === "btn_open_ticket") {
         await i.deferReply({ ephemeral: true });
-        const t = await (i.channel as any).threads.create({ name: `ticket-${i.user.username}`, type: ChannelType.PrivateThread });
+        const t = await (i.channel as any).threads.create({ name: `ticket-${i.user.username}`, type: ChannelType.PrivateThread, autoArchiveDuration: ThreadAutoArchiveDuration.OneDay });
         await t.members.add(i.user.id);
         await t.send(`**Transmission Received.** <@${i.user.id}>, staff alerted.`);
         return i.editReply(`✅ Ticket opened: <#${t.id}>`);
@@ -238,7 +238,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             await db.insert(tribeRegistrationsTable).values({ tribeName: tN, ign, xboxGamertag: xb, discordUserId: i.user.id, discordUsername: i.user.username, channelId: chId, isOwner: !join });
             if (i.member instanceof GuildMember && i.member.manageable) await i.member.setNickname(`[${tN}] ${ign}`);
             await refreshOverseerStatus(client);
-            await i.editReply(`✅ Success. Access HQ: <#${chId}>`);
+            await i.editReply(`✅ Protocol Success. Access HQ: <#${chId}>`);
         } catch (e) { await i.editReply("❌ Protocol Error."); }
     }
     if (i.customId === "modal_alpha") {
@@ -265,4 +265,10 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
 });
 
 http.createServer((_, res) => { res.writeHead(200); res.end("OK"); }).listen(process.env.PORT || 3000);
-async function start() 
+
+async function start() {
+    const rest = new REST({ version: "10" }).setToken(token!);
+    await rest.put(Routes.applicationCommands(applicationId!), { body: commands.map(c => c.toJSON()) });
+    await client.login(token);
+}
+start();
