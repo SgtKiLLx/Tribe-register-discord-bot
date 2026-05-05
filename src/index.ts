@@ -66,10 +66,13 @@ async function postToStaffLog(guildId: string, embed: EmbedBuilder) {
 }
 
 function getTribeDashboard(tribeName: string) {
-  const embed = new EmbedBuilder()
-    .setTitle(`🏰 Tribe Dashboard: ${tribeName}`)
-    .setDescription("Welcome! Use the buttons below to manage your roster.")
-    .setColor(Colors.DarkGold);
+    const embed = new EmbedBuilder()
+        .setTitle(`💠 OVERSEER | Tribe: ${tribeName}`)
+        .setDescription("Tribe channel initialized. All registered survivors have been granted access.")
+        .setColor(0x00ffff)
+        .setFooter({ text: "Overseer | Monitoring Roster..." });
+    // ... keep buttons as is
+}
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId(`view_roster:${tribeName}`).setLabel("View Roster").setStyle(ButtonStyle.Secondary).setEmoji("📜"),
     new ButtonBuilder().setCustomId(`leave_tribe`).setLabel("Leave Tribe").setStyle(ButtonStyle.Danger).setEmoji("🚪")
@@ -128,7 +131,9 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
       return interaction.reply(`✅ Tribe channels linked to **${category.name}**`);
     }
     if (interaction.commandName === "post-info") {
-      const embed = new EmbedBuilder().setTitle("🦖 Tribe Registration").setDescription("Click below to register!").setColor(Colors.Green);
+      const embed = new EmbedBuilder().setTitle("🔵 OVERSEER | Tribe Management System").setDescription("**System Online.**\n\nWelcome, Survivor. Please choose an initialization protocol below to begin your tribe integration.\n\n" +
+        "**[Register]** — Initialize a new tribe signature.\n" +
+        "**[Join]** — Sync with an existing tribe signature.").setColor(0x00ffff);
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId("btn_start_register").setLabel("Create Tribe").setStyle(ButtonStyle.Success),
         new ButtonBuilder().setCustomId("btn_start_join").setLabel("Join Tribe").setStyle(ButtonStyle.Primary)
