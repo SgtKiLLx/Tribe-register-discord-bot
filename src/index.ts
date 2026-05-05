@@ -98,7 +98,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 
 client.once(Events.ClientReady, (c) => {
   logger.info({ tag: c.user.tag }, "Overseer System Online");
-  c.user.setActivity('the Arks', { type: ActivityType.Watching });
+  c.user.setActivity('over the server', { type: ActivityType.Watching });
 });
 
 // 4. Interaction Listener
