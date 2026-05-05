@@ -265,7 +265,19 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   }
 });
 
-http.createServer((_, res) => { res.writeHead(200); res.end("OK"); }).listen(process.env.PORT || 3000);
+// --- 5. HIGH-EFFICIENCY WEB SERVER ---
+// Optimized for Cron-job.org and Render's free tier
+http.createServer((req, res) => {
+  const body = "OK";
+  res.writeHead(200, {
+    'Content-Type': 'text/plain',
+    'Content-Length': Buffer.byteLength(body),
+    'Connection': 'close'
+  });
+  res.end(body);
+}).listen(process.env.PORT || 3000, () => {
+  logger.info("Overseer Pinger Server ready on port " + (process.env.PORT || 3000));
+});
 
 async function start() {
     try {
