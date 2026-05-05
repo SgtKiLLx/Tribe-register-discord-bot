@@ -1,6 +1,5 @@
 import { pgTable, text, varchar, timestamp, serial, boolean, integer } from "drizzle-orm/pg-core";
 
-// Existing Tribe/Survivor Table
 export const tribeRegistrationsTable = pgTable("tribe_registrations", {
   id: serial("id").primaryKey(),
   tribeName: varchar("tribe_name", { length: 100 }).notNull(),
@@ -10,27 +9,18 @@ export const tribeRegistrationsTable = pgTable("tribe_registrations", {
   discordUsername: varchar("discord_username", { length: 100 }).notNull(),
   channelId: varchar("channel_id", { length: 50 }),
   isOwner: boolean("is_owner").default(false),
-  hasClaimedKit: boolean("has_claimed_kit").default(false), // NEW: For Feature #5
+  hasClaimedKit: boolean("has_claimed_kit").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// NEW: Task Board Table (Feature #2)
-export const tribeTasksTable = pgTable("tribe_tasks", {
+// NEW: Alpha Claims Table
+export const alphaClaimsTable = pgTable("alpha_claims", {
   id: serial("id").primaryKey(),
   tribeName: varchar("tribe_name", { length: 100 }).notNull(),
-  taskContent: text("task_content").notNull(),
-  status: varchar("status", { length: 20 }).default("open"), // open, claimed, completed
-  claimedBy: varchar("claimed_by", { length: 50 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-// NEW: Recruitment Table (Feature #1)
-export const recruitmentTable = pgTable("recruitment", {
-  id: serial("id").primaryKey(),
   discordUserId: varchar("discord_user_id", { length: 50 }).notNull(),
-  playstyle: varchar("playstyle", { length: 100 }).notNull(),
-  hours: varchar("hours", { length: 50 }).notNull(),
-  description: text("description").notNull(),
+  coordinates: varchar("coordinates", { length: 50 }).notNull(),
+  memberCount: integer("member_count").notNull(),
+  status: varchar("status", { length: 20 }).default("pending"), // pending, approved, denied
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -39,6 +29,22 @@ export const guildConfigTable = pgTable("guild_config", {
   adminRoleIds: text("admin_role_ids").default(""),
   staffLogChannelId: varchar("staff_log_channel_id", { length: 50 }),
   tribeCategoryId: varchar("tribe_category_id", { length: 50 }),
-  recruitmentChannelId: varchar("recruitment_channel_id", { length: 50 }), // NEW: Where LFT posts go
+  recruitmentChannelId: varchar("recruitment_channel_id", { length: 50 }),
+  welcomeChannelId: varchar("welcome_channel_id", { length: 50 }),
+  rulesChannelId: varchar("rules_channel_id", { length: 50 }),
+  infoChannelId: varchar("info_channel_id", { length: 50 }),
+  // NEW COLUMNS:
+  supportChannelId: varchar("support_channel_id", { length: 50 }),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// NEW: Support Tickets Table
+export const supportTicketsTable = pgTable("support_tickets", {
+  id: serial("id").primaryKey(),
+  discordUserId: varchar("discord_user_id", { length: 50 }).notNull(),
+  threadId: varchar("thread_id", { length: 50 }).notNull(),
+  status: varchar("status", { length: 20 }).default("open"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export { tribeTasksTable, recruitmentTable } from "./schema"; // Ensure other tables stay
