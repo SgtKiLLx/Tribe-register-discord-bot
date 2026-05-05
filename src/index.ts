@@ -38,11 +38,7 @@ function getTribeDashboard(tribeName: string) {
   const embed = new EmbedBuilder()
     .setTitle("💠 OVERSEER | HQ: " + tribeName)
     .setDescription("Tribe Channel Active. Use buttons below for coordination.")
-    .setColor(OVERSEER_COLOR)
-    .addFields(
-      { name: "🚨 RAID ALERT", value: "Emergency ping for all members.", inline: true },
-      { name: "🎁 STARTER KIT", value: "Request one-time starter kit.", inline: true }
-    );
+    .setColor(OVERSEER_COLOR);
   const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId("raid_alert").setLabel("RAID ALERT").setStyle(ButtonStyle.Danger).setEmoji("🚨"),
     new ButtonBuilder().setCustomId("claim_kit").setLabel("Claim Kit").setStyle(ButtonStyle.Success).setEmoji("🎁")
@@ -58,11 +54,11 @@ function getTribeDashboard(tribeName: string) {
 const commands = [
   new SlashCommandBuilder().setName("help").setDescription("View the Overseer manual"),
   new SlashCommandBuilder().setName("post-info").setDescription("Deploy Registration Interface").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+  new SlashCommandBuilder().setName("post-recruitment").setDescription("Deploy Recruitment Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   new SlashCommandBuilder().setName("lft").setDescription("Post a recruitment profile to find a tribe"),
   new SlashCommandBuilder().setName("my-tribe").setDescription("View your survivor profile"),
   new SlashCommandBuilder().setName("leave-tribe").setDescription("Exit current tribe and revoke access"),
   new SlashCommandBuilder().setName("list-tribes").setDescription("View global tribe database").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("kick-member").setDescription("Remove survivor from records (Staff)").addUserOption(o => o.setName("target").setDescription("User to kick").setRequired(true)).setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
   new SlashCommandBuilder().setName("setup").setDescription("Configure Overseer protocols")
     .addRoleOption(o => o.setName("role").setDescription("Admin Role").setRequired(true))
     .addChannelOption(o => o.setName("logs").setDescription("Staff Logs").setRequired(true))
@@ -82,7 +78,7 @@ client.once(Events.ClientReady, async (c) => {
   await refreshOverseerStatus(c);
 });
 
-// --- Welcome Event (Fixed Strings) ---
+// --- Welcome Event ---
 client.on(Events.GuildMemberAdd, async (member) => {
     try {
         const [config] = await db.select().from(guildConfigTable).where(eq(guildConfigTable.guildId, member.guild.id)).limit(1);
@@ -114,6 +110,18 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
 
   if (interaction.isButton()) {
     const [userReg] = await db.select().from(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.discordUserId, interaction.user.id)).limit(1);
+    
+    // Trigger LFT Modal from Button
+    if (interaction.customId === "btn_lft_start") {
+        const modal = new ModalBuilder().setCustomId("modal_lft").setTitle("Survivor Recruitment");
+        modal.addComponents(
+            new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("style").setLabel("Playstyle (PVP/PVE/Hybrid)").setStyle(TextInputStyle.Short).setRequired(true)),
+            new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("hours").setLabel("Hours Played").setStyle(TextInputStyle.Short).setRequired(true)),
+            new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("desc").setLabel("Skills (Breeding, Raid, etc)").setStyle(TextInputStyle.Paragraph).setRequired(true))
+        );
+        return interaction.showModal(modal);
+    }
+
     if (interaction.customId === "btn_start_register") {
       const modal = new ModalBuilder().setCustomId("modal_reg").setTitle("Register New Tribe");
       modal.addComponents(
@@ -137,7 +145,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     }
     if (interaction.customId === "claim_kit" && userReg) {
       if (userReg.hasClaimedKit) return interaction.reply({ content: "❌ Kit already claimed.", ephemeral: true });
-      await postToStaffLog(interaction.guildId!, new EmbedBuilder().setTitle("🎁 Kit Request").setDescription("<@" + interaction.user.id + "> (Tribe: " + userReg.tribeName + ") requested a kit.").setColor(Colors.Green));
+      await postToStaffLog(interaction.guildId!, new EmbedBuilder().setTitle("🎁 Kit Request").setDescription("<@" + interaction.user.id + "> requested a kit for **" + userReg.tribeName + "**.").setColor(Colors.Green));
       await db.update(tribeRegistrationsTable).set({ hasClaimedKit: true }).where(eq(tribeRegistrationsTable.discordUserId, interaction.user.id));
       return interaction.reply({ content: "✅ Request sent to staff!", ephemeral: true });
     }
@@ -165,11 +173,6 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
         } catch (e) { await interaction.editReply("❌ DB Error."); }
     }
 
-    if (interaction.commandName === "help") {
-        const embed = new EmbedBuilder().setTitle("🔵 OVERSEER | Documentation").setColor(OVERSEER_COLOR).addFields({ name: "Survivor", value: "`/register`, `/join`, `/my-tribe`, `/lft`, `/leave-tribe`" }, { name: "Staff", value: "`/list-tribes`, `/post-info`, `/setup`, `/kick-member`" });
-        return interaction.reply({ embeds: [embed], ephemeral: true });
-    }
-
     if (interaction.commandName === "post-info") {
         const embed = new EmbedBuilder().setTitle("🛡️ OVERSEER | TRIBE INITIALIZATION").setThumbnail(client.user?.displayAvatarURL() || null).setColor(OVERSEER_COLOR)
             .setDescription("Welcome, Survivor. Initialize your signature below.")
@@ -180,6 +183,31 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
         );
         await (interaction.channel as any).send({ embeds: [embed], components: [row] });
         return interaction.reply({ content: "Interface Deployed.", ephemeral: true });
+    }
+
+    // NEW: POST RECRUITMENT INTERFACE
+    if (interaction.commandName === "post-recruitment") {
+        const embed = new EmbedBuilder()
+            .setTitle("📡 OVERSEER | RECRUITMENT TERMINAL")
+            .setThumbnail(client.user?.displayAvatarURL() || null)
+            .setColor(OVERSEER_COLOR)
+            .setDescription("Looking for a tribe or looking to recruit? Use this terminal to broadcast your signature to the server.")
+            .addFields(
+                { name: "🙋‍♂️ FOR SURVIVORS", value: "Click the button below to post your playstyle, hours, and skills to this channel.", inline: false },
+                { name: "🏰 FOR TRIBE LEADERS", value: "Browse the profiles in this channel. If you find a suitable survivor, send them a DM to begin recruitment.", inline: false }
+            )
+            .setFooter({ text: "Overseer v1.2 | Matchmaking Protocol Online" });
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+                .setCustomId("btn_lft_start")
+                .setLabel("Post LFT Profile")
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji("📝")
+        );
+
+        await (interaction.channel as any).send({ embeds: [embed], components: [row] });
+        return interaction.reply({ content: "Recruitment Terminal Deployed.", ephemeral: true });
     }
 
     if (interaction.commandName === "setup") {
