@@ -232,7 +232,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             let chId: string | null = null;
             if (!join) {
                 const [cfg] = await db.select().from(guildConfigTable).where(eq(guildConfigTable.guildId, i.guildId!)).limit(1);
-                const chan = await i.guild?.channels.create({ name: `tribe-${tN.toLowerCase().replace(/\s+/g, '-')}`, type: ChannelType.GuildText, parent: cfg?.tribeCategoryId || undefined, permissionOverwrites: [{ id: i.guild!.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }, { id: i.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }, { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] });
+                const chan = await i.guild?.channels.create({ name: tN.toLowerCase().replace(/\s+/g, '-')}`, type: ChannelType.GuildText, parent: cfg?.tribeCategoryId || undefined, permissionOverwrites: [{ id: i.guild!.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }, { id: i.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }, { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] });
                 chId = chan?.id || null;
                 if (chan) await (chan as any).send(getTribeDashboard(tN));
             } else {
