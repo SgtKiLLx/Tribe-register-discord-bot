@@ -196,6 +196,24 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("tribe").setLabel(join ? "Exact Tribe Name" : "New Tribe Name").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("ign").setLabel("Your IGN").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("xbox").setLabel("Xbox Gamertag").setStyle(TextInputStyle.Short).setRequired(true)));
             return i.showModal(m);
         }
+      // --- ECONOMY: CHECK BALANCE (SURVIVOR) ---
+    if (i.commandName === "bal") {
+        const [userData] = await db.select().from(tribeRegistrationsTable).where(and(
+            eq(tribeRegistrationsTable.discordUserId, i.user.id), 
+            eq(tribeRegistrationsTable.guildId, i.guildId!)
+        )).limit(1);
+
+        const balance = userData?.tekCoins || 0;
+        
+        const embed = new EmbedBuilder()
+            .setTitle("💰 OVERSEER | BANK SIGNATURE")
+            .setColor(OVERSEER_COLOR)
+            .setDescription("Identity verified. Accessing encrypted coin storage...")
+            .addFields({ name: "Current Balance", value: `**${balance}** Tek Coins`, inline: true })
+            .setFooter({ text: "Protocol: Financial Security" });
+
+        return i.editReply({ embeds: [embed] });
+    }
         // --- TEK-MARKET: ADD ITEM (STAFF) ---
     if (i.commandName === "add-item") {
         if (!(await isOverseerStaff(i))) return i.editReply({ content: "❌ Staff clearance required." });
