@@ -268,6 +268,38 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             const [u] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
             return i.editReply("💰 **Balance:** " + (u?.tekCoins || 0) + " Tek Coins.");
         }
+      // --- SURVIVOR: MY PROFILE ---
+    if (i.commandName === "my-tribe") {
+        try {
+            const [reg] = await db.select().from(tribeRegistrationsTable).where(
+                and(
+                    eq(tribeRegistrationsTable.discordUserId, i.user.id), 
+                    eq(tribeRegistrationsTable.guildId, i.guildId!)
+                )
+            ).limit(1);
+
+            if (!reg) {
+                return i.editReply({ content: "❌ **No Signature Detected.** You must register or join a tribe first." });
+            }
+
+            const e = new EmbedBuilder()
+                .setTitle(`👤 SURVIVOR PROFILE: ${reg.ign}`)
+                .setColor(OVERSEER_COLOR)
+                .setThumbnail(i.user.displayAvatarURL())
+                .addFields(
+                    { name: "🛡️ Tribe", value: reg.tribeName, inline: true },
+                    { name: "🎮 Xbox ID", value: reg.xboxGamertag, inline: true },
+                    { name: "💰 Balance", value: `${reg.tekCoins} Tek Coins`, inline: true },
+                    { name: "🛡️ Status", value: reg.status === 'verified' ? "✅ Verified" : "⏳ Pending Approval", inline: true }
+                )
+                .setFooter({ text: `Overseer Intelligence | ID: ${i.user.id}` });
+
+            return i.editReply({ embeds: [e] });
+        } catch (error) {
+            console.error("My-Tribe Protocol Error:", error);
+            return i.editReply("❌ **Protocol Failure.** Could not access survivor database.");
+        }
+    }
         if (i.commandName === "shop") {
             const its = await db.select().from(shopItemsTable).where(eq(shopItemsTable.guildId, i.guildId!));
             const e = new EmbedBuilder().setTitle("🛒 MARKET").setColor(OVERSEER_COLOR).addFields({ name: "Items", value: its.map(x => `• **${x.itemName}**: ${x.price}`).join("\n") || "Empty" });
