@@ -74,36 +74,36 @@ function getTribeDashboard(tribeName: string) {
   return { embeds: [embed], components: [r1, r2] };
 }
 
-// 1. Commands
+// 1. Commands (Validated Descriptions)
 const commands = [
   new SlashCommandBuilder().setName("help").setDescription("View the full Overseer manual"),
   new SlashCommandBuilder().setName("bal").setDescription("Check your Tek Coin balance"),
   new SlashCommandBuilder().setName("shop").setDescription("Browse the server Tek-Market"),
-  new SlashCommandBuilder().setName("buy").setDescription("Purchase an item").addStringOption(o => o.setName("item").setDescription("Item name").setAutocomplete(true).setRequired(true)),
+  new SlashCommandBuilder().setName("buy").setDescription("Purchase an item").addStringOption(o => o.setName("item").setDescription("The exact name of the item").setAutocomplete(true).setRequired(true)),
   new SlashCommandBuilder().setName("lft").setDescription("Post a recruitment profile"),
   new SlashCommandBuilder().setName("my-tribe").setDescription("View your survivor profile"),
   new SlashCommandBuilder().setName("leave-tribe").setDescription("Exit current tribe"),
   new SlashCommandBuilder().setName("list-tribes").setDescription("View server tribe database"),
-  new SlashCommandBuilder().setName("kick-member").setDescription("Remove survivor from records").addUserOption(o => o.setName("target").setDescription("User to kick").setRequired(true)),
-  new SlashCommandBuilder().setName("bounty").setDescription("Place a bounty on a tribe").addStringOption(o => o.setName("tribe").setDescription("Target Tribe").setRequired(true)).addIntegerOption(o => o.setName("amount").setDescription("Coin Amount").setRequired(true)),
-  new SlashCommandBuilder().setName("add-item").setDescription("Add item to shop").addStringOption(o => o.setName("name").setDescription("Name").setAutocomplete(true).setRequired(true)).addIntegerOption(o => o.setName("price").setDescription("Price").setRequired(true)).addStringOption(o => o.setName("category").setDescription("Category").addChoices({name:'Dino', value:'dino'}, {name:'Item', value:'item'}).setRequired(true)),
-  new SlashCommandBuilder().setName("remove-item").setDescription("Remove item from shop").addStringOption(o => o.setName("item").setDescription("Item to remove").setAutocomplete(true).setRequired(true)),
+  new SlashCommandBuilder().setName("kick-member").setDescription("Remove a survivor from records").addUserOption(o => o.setName("target").setDescription("The survivor to kick").setRequired(true)),
+  new SlashCommandBuilder().setName("bounty").setDescription("Place a bounty on a tribe").addStringOption(o => o.setName("tribe").setDescription("Target tribe name").setRequired(true)).addIntegerOption(o => o.setName("amount").setDescription("Tek Coin reward amount").setRequired(true)),
+  new SlashCommandBuilder().setName("add-item").setDescription("Add item to shop").addStringOption(o => o.setName("name").setDescription("Item or Dino name").setAutocomplete(true).setRequired(true)).addIntegerOption(o => o.setName("price").setDescription("Price in coins").setRequired(true)).addStringOption(o => o.setName("category").setDescription("Item category").addChoices({name:'Dino', value:'dino'}, {name:'Item', value:'item'}).setRequired(true)),
+  new SlashCommandBuilder().setName("remove-item").setDescription("Remove item from shop").addStringOption(o => o.setName("item").setDescription("Item name to remove").setAutocomplete(true).setRequired(true)),
   new SlashCommandBuilder().setName("post-info").setDescription("Deploy Registration Interface").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   new SlashCommandBuilder().setName("post-support").setDescription("Deploy Support Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   new SlashCommandBuilder().setName("post-recruitment").setDescription("Deploy Recruitment Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   new SlashCommandBuilder().setName("post-alpha-terminal").setDescription("Deploy Alpha Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   new SlashCommandBuilder().setName("setup").setDescription("Configure Overseer protocols")
     .addRoleOption(o => o.setName("role").setDescription("Staff Role ID").setRequired(true))
-    .addChannelOption(o => o.setName("logs").setDescription("Staff Logs").setRequired(true))
-    .addChannelOption(o => o.setName("welcome").setDescription("Welcome").setRequired(true))
-    .addChannelOption(o => o.setName("rules").setDescription("Rules").setRequired(true))
-    .addChannelOption(o => o.setName("info").setDescription("Info").setRequired(true))
-    .addChannelOption(o => o.setName("recruitment").setDescription("Recruit").setRequired(true))
-    .addChannelOption(o => o.setName("support").setDescription("Support").setRequired(true))
-    .addChannelOption(o => o.setName("category").setDescription("Tribe Category").addChannelTypes(ChannelType.GuildCategory).setRequired(true))
+    .addChannelOption(o => o.setName("logs").setDescription("Staff Logs Channel").setRequired(true))
+    .addChannelOption(o => o.setName("welcome").setDescription("Welcome Channel").setRequired(true))
+    .addChannelOption(o => o.setName("rules").setDescription("Rules Channel").setRequired(true))
+    .addChannelOption(o => o.setName("info").setDescription("Info Channel").setRequired(true))
+    .addChannelOption(o => o.setName("recruitment").setDescription("Recruitment Channel").setRequired(true))
+    .addChannelOption(o => o.setName("support").setDescription("Support Ticket Channel").setRequired(true))
+    .addChannelOption(o => o.setName("category").setDescription("Tribe HQ Category").addChannelTypes(ChannelType.GuildCategory).setRequired(true))
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("register").setDescription("Register a new tribe"),
-  new SlashCommandBuilder().setName("join").setDescription("Join an existing tribe").addStringOption(o => o.setName("tribe_name").setAutocomplete(true).setRequired(true)),
+  new SlashCommandBuilder().setName("register").setDescription("Initialize a new tribe signature"),
+  new SlashCommandBuilder().setName("join").setDescription("Join an existing tribe").addStringOption(o => o.setName("tribe_name").setDescription("Tribe name signature").setAutocomplete(true).setRequired(true)),
 ];
 
 // 2. Client Setup
@@ -136,7 +136,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             const filtered = [...new Set(tribes.map(t => t.name))].filter(n => n.toLowerCase().includes(focused.value.toLowerCase())).slice(0, 25);
             return i.respond(filtered.map(n => ({ name: n, value: n })));
         }
-        if (i.commandName === "add-item") {
+        if (i.commandName === "add-item" && focused.name === "name") {
             const filtered = ARK_ASSETS.filter(a => a.toLowerCase().includes(focused.value.toLowerCase())).slice(0, 25);
             return i.respond(filtered.map(a => ({ name: a, value: a })));
         }
@@ -149,7 +149,6 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
     }
 
     if (i.isButton()) {
-        // MODALS: CANNOT DEPLY DEFER
         if (["btn_start_register", "btn_start_join", "btn_lft_start", "btn_alpha_claim", "add_task"].includes(i.customId)) {
             const modalId = i.customId === "btn_start_register" ? "modal_reg" : i.customId === "btn_start_join" ? "modal_join" : i.customId === "btn_alpha_claim" ? "modal_alpha" : i.customId === "add_task" ? "modal_task" : "modal_lft";
             const m = new ModalBuilder().setCustomId(modalId).setTitle("Overseer Terminal");
@@ -158,14 +157,13 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             } else if (modalId === "modal_alpha") {
                 m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("tribe").setLabel("Tribe").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("coords").setLabel("Coords").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("members").setLabel("Members").setStyle(TextInputStyle.Short).setRequired(true)));
             } else if (modalId === "modal_task") {
-                m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("content").setLabel("Task Details").setStyle(TextInputStyle.Paragraph).setRequired(true)));
+                m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("content").setLabel("Details").setStyle(TextInputStyle.Paragraph).setRequired(true)));
             } else {
                 m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("tribe").setLabel("Tribe Name").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("ign").setLabel("IGN").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("xbox").setLabel("Xbox Gamertag").setStyle(TextInputStyle.Short).setRequired(true)));
             }
             return i.showModal(m);
         }
 
-        // NON-MODAL BUTTONS: MUST DEFER
         await i.deferReply({ ephemeral: true }).catch(() => null);
 
         if (i.customId.startsWith("gate_accept:") || i.customId.startsWith("gate_deny:")) {
@@ -189,9 +187,9 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
         }
 
         if (i.customId === "btn_open_ticket") {
-            const t = await (i.channel as any).threads.create({ name: `ticket-${i.user.username}`, type: ChannelType.PrivateThread });
+            const t = await (i.channel as any).threads.create({ name: `ticket-${i.user.username}`, type: ChannelType.PrivateThread, autoArchiveDuration: ThreadAutoArchiveDuration.OneDay });
             await t.members.add(i.user.id);
-            await t.send("**SOS Transmission Received.** <@" + i.user.id + ">, staff alerted.");
+            await t.send("**SOS Received.** <@" + i.user.id + ">, explain your situation. Staff alerted.");
             return i.editReply("✅ SOS Opened: <#" + t.id + ">");
         }
 
@@ -213,25 +211,11 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
 
     if (i.isChatInputCommand()) {
         if (["post-info", "post-support", "post-alpha-terminal", "post-recruitment", "register", "lft", "join"].includes(i.commandName)) {
-            // These pop modals or don't touch DB, NO DEFER
         } else {
             await i.deferReply({ ephemeral: true }).catch(() => null);
         }
 
         const isStaff = await isOverseerStaff(i);
-
-        if (i.commandName === "register" || i.commandName === "join") {
-            const join = i.commandName === "join";
-            const m = new ModalBuilder().setCustomId(join ? "modal_join" : "modal_reg").setTitle("Overseer Terminal");
-            m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("tribe").setLabel(join ? "Exact Tribe Name" : "New Tribe Name").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("ign").setLabel("Your IGN").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("xbox").setLabel("Xbox Gamertag").setStyle(TextInputStyle.Short).setRequired(true)));
-            return i.showModal(m);
-        }
-
-        if (i.commandName === "lft") {
-            const m = new ModalBuilder().setCustomId("modal_lft").setTitle("Survivor Recruitment");
-            m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("style").setLabel("Playstyle").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("hours").setLabel("Hours").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("desc").setLabel("Skills").setStyle(TextInputStyle.Paragraph).setRequired(true)));
-            return i.showModal(m);
-        }
 
         if (i.commandName === "bal") {
             const [u] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
@@ -259,30 +243,25 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             regs.slice(0, 25).forEach(r => e.addFields({ name: "[" + r.tribeName + "] " + r.ign, value: "Xbox: " + r.xboxGamertag, inline: false }));
             return i.editReply({ embeds: [e] });
         }
+        if (i.commandName === "kick-member") {
+            if (!isStaff) return i.editReply("Staff only.");
+            const target = i.options.getUser("target", true);
+            await db.delete(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, target.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
+            return i.editReply(`✅ Purged <@${target.id}>.`);
+        }
         if (i.commandName === "setup") {
             const o = i.options;
             await db.insert(guildConfigTable).values({ guildId: i.guildId!, adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id }).onConflictDoUpdate({ target: guildConfigTable.guildId, set: { adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id } });
             return i.editReply("✅ Configured.");
         }
-        if (i.commandName === "add-item") {
-            if (!isStaff) return i.editReply("Staff only.");
-            await db.insert(shopItemsTable).values({ guildId: i.guildId!, itemName: i.options.getString("name", true), price: i.options.getInteger("price", true), category: i.options.getString("category", true) });
-            return i.editReply("✅ Item added.");
-        }
-        if (i.commandName === "my-tribe") {
-            const [r] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
-            if (!r) return i.editReply("No record.");
-            return i.editReply({ embeds: [new EmbedBuilder().setTitle(`👤 ${r.ign}`).addFields({ name: "Tribe", value: r.tribeName }, { name: "Xbox", value: r.xboxGamertag }).setColor(OVERSEER_COLOR)] });
-        }
-        if (["post-info", "post-support", "post-alpha-terminal", "post-recruitment"].includes(i.commandName)) {
-            const e = new EmbedBuilder().setColor(OVERSEER_COLOR);
-            let row = new ActionRowBuilder<ButtonBuilder>();
-            if (i.commandName === "post-info") { e.setTitle("🛡️ REG").setDescription("Initialize below."); row.addComponents(new ButtonBuilder().setCustomId("btn_start_register").setLabel("Create Tribe").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("btn_start_join").setLabel("Join Tribe").setStyle(ButtonStyle.Primary)); }
-            else if (i.commandName === "post-support") { e.setTitle("🆘 SUPPORT").setDescription("SOS link."); row.addComponents(new ButtonBuilder().setCustomId("btn_open_ticket").setLabel("Contact").setStyle(ButtonStyle.Danger)); }
-            else if (i.commandName === "post-alpha-terminal") { e.setTitle("👑 ALPHA").setDescription("Claim dominance."); row.addComponents(new ButtonBuilder().setCustomId("btn_alpha_claim").setLabel("Claim").setStyle(ButtonStyle.Secondary)); }
-            else { e.setTitle("📡 RECRUIT").setDescription("LFT link."); row.addComponents(new ButtonBuilder().setCustomId("btn_lft_start").setLabel("Post Profile").setStyle(ButtonStyle.Primary)); }
-            await (i.channel as any).send({ embeds: [e], components: [row] });
-            return i.reply({ content: "Terminal Deployed.", ephemeral: true });
+        if (i.commandName === "bounty") {
+            const t = i.options.getString("tribe", true);
+            const a = i.options.getInteger("amount", true);
+            const [u] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
+            if (!u || u.tekCoins < a) return i.editReply("❌ Insufficient coins.");
+            await db.update(tribeRegistrationsTable).set({ tekCoins: u.tekCoins - a }).where(eq(tribeRegistrationsTable.id, u.id));
+            await db.insert(bountiesTable).values({ guildId: i.guildId!, targetTribe: t, reward: a, placedBy: i.user.id });
+            return i.editReply({ embeds: [new EmbedBuilder().setTitle("🚨 BOUNTY").setDescription("Reward of **" + a + "** on tribe **" + t + "**!").setColor(Colors.Red)] });
         }
     }
 
