@@ -43,7 +43,7 @@ async function postToStaffLog(guildId: string, embed: EmbedBuilder) {
 }
 
 function getTribeDashboard(tribeName: string) {
-  const embed = new EmbedBuilder().setTitle("💠 OVERSEER | HQ: " + tribeName).setDescription("Tribe HQ Active. Use protocols for coordination.").setColor(OVERSEER_COLOR);
+  const embed = new EmbedBuilder().setTitle("💠 OVERSEER | HQ: " + tribeName).setDescription("Tribe HQ Active. Access granted to registered survivors.").setColor(OVERSEER_COLOR);
   const r1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId("raid_alert").setLabel("RAID ALERT").setStyle(ButtonStyle.Danger).setEmoji("🚨"),
     new ButtonBuilder().setCustomId("claim_kit").setLabel("Claim Kit").setStyle(ButtonStyle.Success).setEmoji("🎁")
@@ -83,7 +83,7 @@ const commands = [
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages] });
 
 client.once(Events.ClientReady, async (c) => {
-  console.log("Overseer System Online: " + c.user.tag);
+  console.log("Overseer Online: " + c.user.tag);
   await refreshOverseerStatus(c);
 });
 
@@ -97,12 +97,12 @@ client.on(Events.GuildMemberAdd, async (m) => {
             .addFields(
               { name: "📜 DIRECTIVES", value: "<#" + (cfg.rulesChannelId || "0") + "> | <#" + (cfg.infoChannelId || "0") + ">", inline: false },
               { name: "🦖 INTEGRATION", value: "Initialize signature at the registration channel.", inline: false }
-            ).setFooter({ text: "Survivor #" + m.guild.memberCount });
-        await c.send({ content: "Welcome, <@" + m.id + ">", embeds: [e] });
+            );
+        await c.send({ content: "Welcome Survivor, <@" + m.id + ">", embeds: [e] });
     } catch (e) { console.error("Welcome fail"); }
 });
 
-// 3. Interaction Listener
+// 3. Interactions
 client.on(Events.InteractionCreate, async (i: Interaction) => {
   if (i.isAutocomplete() && i.commandName === "join") {
     const tribes = await db.select({ name: tribeRegistrationsTable.tribeName }).from(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.guildId, i.guildId!));
@@ -115,9 +115,10 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
     
     if (i.customId === "btn_open_ticket") {
         await i.deferReply({ ephemeral: true });
-        const t = await (i.channel as any).threads.create({ name: "ticket-" + i.user.username, type: ChannelType.PrivateThread, autoArchiveDuration: ThreadAutoArchiveDuration.OneDay });
-        await t.members.add(i.user.id);
-        await t.send("**Transmission Received.** <@" + i.user.id + ">, staff alerted.");
+        const chan: any = i.channel;
+        const thread = await chan.threads.create({ name: "ticket-" + i.user.username, type: ChannelType.PrivateThread, autoArchiveDuration: ThreadAutoArchiveDuration.OneDay });
+        await thread.members.add(i.user.id);
+        await thread.send("**Transmission Received.** <@" + i.user.id + ">, staff alerted.");
         return i.editReply("✅ Ticket opened: <#" + t.id + ">");
     }
 
@@ -180,7 +181,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
     if (i.commandName === "list-tribes") {
         await i.deferReply({ ephemeral: true });
         const regs = await db.select().from(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.guildId, i.guildId!)).orderBy(tribeRegistrationsTable.tribeName);
-        if (regs.length === 0) return i.editReply("No signatures found for this sector.");
+        if (regs.length === 0) return i.editReply("No signatures found for Sector: " + i.guildId);
         const e = new EmbedBuilder().setTitle("🌐 SERVER DATABASE").setColor(OVERSEER_COLOR);
         regs.slice(0, 25).forEach(r => e.addFields({ name: "🛡️ [" + r.tribeName + "] " + r.ign, value: "Xbox: " + r.xboxGamertag + " | <@" + r.discordUserId + ">", inline: false }));
         await i.editReply({ embeds: [e] });
@@ -217,7 +218,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
         await db.insert(guildConfigTable).values({ 
             guildId: i.guildId!, adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id 
         }).onConflictDoUpdate({ target: guildConfigTable.guildId, set: { adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id } });
-        return i.reply("✅ Overseer Configured.");
+        return i.reply("✅ Overseer Protocol Configured.");
     }
     
     if (i.commandName === "my-tribe") {
@@ -245,8 +246,8 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
                 const [ex] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.tribeName, tN), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
                 chId = ex?.channelId || null;
                 if (chId) {
-                    const c: any = await i.guild?.channels.fetch(chId).catch(() => null);
-                    if (c) await c.permissionOverwrites.create(i.user.id, { ViewChannel: true, SendMessages: true });
+                    const c: any = await i.guild?.channels.fetch(chId);
+                    await c.permissionOverwrites.create(i.user.id, { ViewChannel: true, SendMessages: true });
                 }
             }
             await db.insert(tribeRegistrationsTable).values({ guildId: i.guildId!, tribeName: tN, ign, xboxGamertag: xb, discordUserId: i.user.id, discordUsername: i.user.username, channelId: chId, isOwner: !join });
@@ -280,14 +281,10 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
   }
 });
 
-// Pinger Support
 http.createServer((_, res) => { res.writeHead(200); res.end("OK"); }).listen(process.env.PORT || 3000);
-
 async function start() {
-    try {
-        const rest = new REST({ version: "10" }).setToken(token!);
-        await rest.put(Routes.applicationCommands(applicationId!), { body: commands.map(c => c.toJSON()) });
-        await client.login(token);
-    } catch (e) { console.error(e); }
+    const rest = new REST({ version: "10" }).setToken(token!);
+    await rest.put(Routes.applicationCommands(applicationId!), { body: commands.map(c => c.toJSON()) });
+    await client.login(token);
 }
 start();
