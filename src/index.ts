@@ -25,12 +25,31 @@ if (!token || !applicationId) process.exit(1);
 
 // --- 🧠 Master Helpers ---
 
+const OVERSEER_EMOJI_ID = "1501961516604330035";
+
 async function refreshOverseerStatus(client: Client) {
     try {
-        const tribes = await db.select({ name: tribeRegistrationsTable.tribeName }).from(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.status, 'verified'));
+        const tribes = await db.select({ name: tribeRegistrationsTable.tribeName })
+            .from(tribeRegistrationsTable)
+            .where(eq(tribeRegistrationsTable.status, 'verified'));
+        
         const count = new Set(tribes.map(t => t.name)).size;
-        client.user?.setActivity(`${count} Active Tribes`, { type: ActivityType.Watching });
-    } catch (e) { console.error("Status Update Fail"); }
+        const statusText = count > 0 ? `over ${count} Tribes` : "over the server";
+
+        // Setting a Custom Activity with your Emoji
+        client.user?.setPresence({
+            activities: [{
+                name: "custom",
+                type: ActivityType.Custom,
+                state: `Watching ${statusText}`,
+                emoji: {
+                    id: OVERSEER_EMOJI_ID 
+                }
+            }]
+        });
+
+        console.log(`Status Sync: Watching ${statusText}`);
+    } catch (e) { console.error("Status fail"); }
 }
 
 async function isOverseerStaff(interaction: Interaction): Promise<boolean> {
