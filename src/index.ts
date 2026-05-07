@@ -10,7 +10,8 @@ import http from "http";
 
 const token = process.env.DISCORD_BOT_TOKEN;
 const applicationId = process.env.DISCORD_APPLICATION_ID;
-const OVERSEER_COLOR = 0x00ffff; 
+const OVERSEER_COLOR = 0x00ffff;
+const OVERSEER_EMOJI_ID = "1501961516604330035";
 
 // --- Memory & Asset Data ---
 const coinCooldown = new Set();
@@ -24,8 +25,6 @@ const ARK_ASSETS = [
 if (!token || !applicationId) process.exit(1);
 
 // --- 🧠 Master Helpers ---
-
-const OVERSEER_EMOJI_ID = "1501961516604330035";
 
 async function refreshOverseerStatus(client: Client) {
     try {
