@@ -67,39 +67,62 @@ function getTribeDashboard(tribeName: string) {
   return { embeds: [embed], components: [r1, r2] };
 }
 
-// 1. Master Command List (20 Commands)
+// 1. Master Command List (All 20 Commands with fixed descriptions)
 const commands = [
   new SlashCommandBuilder().setName("help").setDescription("View the full Overseer manual"),
   new SlashCommandBuilder().setName("register").setDescription("Initialize a new tribe signature"),
   new SlashCommandBuilder().setName("lft").setDescription("Post a recruitment profile"),
   new SlashCommandBuilder().setName("my-tribe").setDescription("View your survivor profile"),
   new SlashCommandBuilder().setName("leave-tribe").setDescription("Exit current tribe"),
-  new SlashCommandBuilder().setName("list-tribes").setDescription("View server database"),
+  new SlashCommandBuilder().setName("list-tribes").setDescription("View server tribe database"),
   new SlashCommandBuilder().setName("bal").setDescription("Check your Tek Coin balance"),
   new SlashCommandBuilder().setName("shop").setDescription("Browse the Tek-Market"),
-  new SlashCommandBuilder().setName("buy").setDescription("Purchase an item").addStringOption(o => o.setName("item").setDescription("Item name").setAutocomplete(true).setRequired(true)),
-  new SlashCommandBuilder().setName("pay").setDescription("Transfer coins").addUserOption(o => o.setName("target").setDescription("Who to pay").setRequired(true)).addIntegerOption(o => o.setName("amount").setDescription("Amount").setRequired(true)),
-  new SlashCommandBuilder().setName("bounty").setDescription("Place bounty").addStringOption(o => o.setName("tribe").setDescription("Target").setRequired(true)).addIntegerOption(o => o.setName("amount").setDescription("Coins").setRequired(true)),
-  new SlashCommandBuilder().setName("add-item").setDescription("Add shop item (Staff)").addStringOption(o => o.setName("name").setDescription("Name").setAutocomplete(true).setRequired(true)).addIntegerOption(o => o.setName("price").setDescription("Price").setRequired(true)).addStringOption(o => o.setName("category").setDescription("Type").addChoices({name:'Dino', value:'dino'}, {name:'Item', value:'item'}).setRequired(true)),
-  new SlashCommandBuilder().setName("remove-item").setDescription("Remove shop item (Staff)").addStringOption(o => o.setName("item").setDescription("Name").setAutocomplete(true).setRequired(true)),
-  new SlashCommandBuilder().setName("add-coins").setDescription("Grant Tek Coins (Staff)").addUserOption(o => o.setName("target").setRequired(true)).addIntegerOption(o => o.setName("amount").setRequired(true)),
-  new SlashCommandBuilder().setName("kick-member").setDescription("Purge survivor (Staff)").addUserOption(o => o.setName("target").setRequired(true)),
+  
+  new SlashCommandBuilder().setName("buy").setDescription("Purchase an item")
+    .addStringOption(o => o.setName("item").setDescription("The name of the item to buy").setAutocomplete(true).setRequired(true)),
+  
+  new SlashCommandBuilder().setName("pay").setDescription("Transfer coins to another user")
+    .addUserOption(o => o.setName("target").setDescription("The survivor to pay").setRequired(true))
+    .addIntegerOption(o => o.setName("amount").setDescription("Amount of coins to send").setRequired(true)),
+  
+  new SlashCommandBuilder().setName("bounty").setDescription("Place bounty on tribe")
+    .addStringOption(o => o.setName("tribe").setDescription("Target tribe name").setRequired(true))
+    .addIntegerOption(o => o.setName("amount").setDescription("Coin reward amount").setRequired(true)),
+  
+  new SlashCommandBuilder().setName("add-item").setDescription("Add shop item (Staff)")
+    .addStringOption(o => o.setName("name").setDescription("Item name").setAutocomplete(true).setRequired(true))
+    .addIntegerOption(o => o.setName("price").setDescription("Price in coins").setRequired(true))
+    .addStringOption(o => o.setName("category").setDescription("Item category").addChoices({name:'Dino', value:'dino'}, {name:'Item', value:'item'}).setRequired(true)),
+  
+  new SlashCommandBuilder().setName("remove-item").setDescription("Remove shop item (Staff)")
+    .addStringOption(o => o.setName("item").setDescription("Name of the item to remove").setAutocomplete(true).setRequired(true)),
+  
+  new SlashCommandBuilder().setName("add-coins").setDescription("Grant Tek Coins (Staff)")
+    .addUserOption(o => o.setName("target").setDescription("The survivor receiving coins").setRequired(true))
+    .addIntegerOption(o => o.setName("amount").setDescription("Amount to grant").setRequired(true)),
+  
+  new SlashCommandBuilder().setName("kick-member").setDescription("Purge survivor (Staff)")
+    .addUserOption(o => o.setName("target").setDescription("The user to remove from the tribe").setRequired(true)),
+  
   new SlashCommandBuilder().setName("post-info").setDescription("Deploy Reg Terminal"),
   new SlashCommandBuilder().setName("post-support").setDescription("Deploy SOS Terminal"),
   new SlashCommandBuilder().setName("post-alpha-terminal").setDescription("Deploy Alpha Terminal"),
   new SlashCommandBuilder().setName("post-recruitment").setDescription("Deploy LFT Terminal"),
   new SlashCommandBuilder().setName("post-shop").setDescription("Deploy Market Terminal"),
-  new SlashCommandBuilder().setName("setup").setDescription("Configure Overseer")
-    .addRoleOption(o => o.setName("role").setDescription("Staff Role").setRequired(true))
-    .addChannelOption(o => o.setName("logs").setDescription("Logs").setRequired(true))
-    .addChannelOption(o => o.setName("welcome").setDescription("Welcome").setRequired(true))
-    .addChannelOption(o => o.setName("rules").setDescription("Rules").setRequired(true))
-    .addChannelOption(o => o.setName("info").setDescription("Info").setRequired(true))
-    .addChannelOption(o => o.setName("recruitment").setDescription("Recruit").setRequired(true))
-    .addChannelOption(o => o.setName("support").setDescription("Support").setRequired(true))
-    .addChannelOption(o => o.setName("category").setDescription("Category").addChannelTypes(ChannelType.GuildCategory).setRequired(true))
+  
+  new SlashCommandBuilder().setName("setup").setDescription("Configure Overseer protocols")
+    .addRoleOption(o => o.setName("role").setDescription("The Staff Role").setRequired(true))
+    .addChannelOption(o => o.setName("logs").setDescription("Staff Log Channel").setRequired(true))
+    .addChannelOption(o => o.setName("welcome").setDescription("Welcome Channel").setRequired(true))
+    .addChannelOption(o => o.setName("rules").setDescription("Rules Channel").setRequired(true))
+    .addChannelOption(o => o.setName("info").setDescription("Information Channel").setRequired(true))
+    .addChannelOption(o => o.setName("recruitment").setDescription("Recruitment Channel").setRequired(true))
+    .addChannelOption(o => o.setName("support").setDescription("Support Ticket Channel").setRequired(true))
+    .addChannelOption(o => o.setName("category").setDescription("Tribe HQ Category").addChannelTypes(ChannelType.GuildCategory).setRequired(true))
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("join").setDescription("Sync with tribe").addStringOption(o => o.setName("tribe_name").setAutocomplete(true).setRequired(true)),
+    
+  new SlashCommandBuilder().setName("join").setDescription("Sync with existing tribe")
+    .addStringOption(o => o.setName("tribe_name").setDescription("Search for a verified tribe").setAutocomplete(true).setRequired(true)),
 ];
 
 // 2. Client Setup
