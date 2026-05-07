@@ -67,33 +67,34 @@ function getTribeDashboard(tribeName: string) {
 // 1. Master Command List
 const commands = [
   new SlashCommandBuilder().setName("help").setDescription("View the full Overseer manual"),
-  new SlashCommandBuilder().setName("register").setDescription("Initialize a new tribe signature"),
-  new SlashCommandBuilder().setName("lft").setDescription("Post a recruitment profile"),
-  new SlashCommandBuilder().setName("my-tribe").setDescription("View your survivor profile"),
-  new SlashCommandBuilder().setName("leave-tribe").setDescription("Exit current tribe"),
-  new SlashCommandBuilder().setName("list-tribes").setDescription("View server tribe database"),
-  new SlashCommandBuilder().setName("bal").setDescription("Check your current Tek Coin balance"),
+  new SlashCommandBuilder().setName("bal").setDescription("Check your Tek Coin balance"),
   new SlashCommandBuilder().setName("shop").setDescription("Browse the server Tek-Market"),
   new SlashCommandBuilder().setName("buy").setDescription("Purchase an item").addStringOption(o => o.setName("item").setDescription("Item name").setAutocomplete(true).setRequired(true)),
-  new SlashCommandBuilder().setName("bounty").setDescription("Place a bounty on a tribe").addStringOption(o => o.setName("tribe").setDescription("Target Tribe").setRequired(true)).addIntegerOption(o => o.setName("amount").setDescription("Coin Amount").setRequired(true)),
-  new SlashCommandBuilder().setName("add-item").setDescription("Add item to shop (Staff)").addStringOption(o => o.setName("name").setDescription("Name").setAutocomplete(true).setRequired(true)).addIntegerOption(o => o.setName("price").setDescription("Price").setRequired(true)).addStringOption(o => o.setName("category").setDescription("Category").addChoices({name:'Dino', value:'dino'}, {name:'Item', value:'item'}).setRequired(true)),
-  new SlashCommandBuilder().setName("remove-item").setDescription("Remove item from shop (Staff)").addStringOption(o => o.setName("item").setDescription("Item to remove").setAutocomplete(true).setRequired(true)),
-  new SlashCommandBuilder().setName("kick-member").setDescription("Remove a survivor (Staff)").addUserOption(o => o.setName("target").setDescription("User to kick").setRequired(true)),
-  new SlashCommandBuilder().setName("post-info").setDescription("Deploy Registration Interface").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("post-support").setDescription("Deploy Support Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("post-alpha-terminal").setDescription("Deploy Alpha Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("post-recruitment").setDescription("Deploy Recruitment Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+  new SlashCommandBuilder().setName("pay").setDescription("Transfer Tek Coins to another survivor").addUserOption(o => o.setName("target").setDescription("Who to pay").setRequired(true)).addIntegerOption(o => o.setName("amount").setDescription("Amount").setRequired(true)),
+  new SlashCommandBuilder().setName("lft").setDescription("Post a recruitment profile"),
+  new SlashCommandBuilder().setName("my-tribe").setDescription("View your survivor profile"),
+  new SlashCommandBuilder().setName("leave-tribe").setDescription("Exit your current tribe and revoke access"),
+  new SlashCommandBuilder().setName("bounty").setDescription("Place a bounty on a tribe").addStringOption(o => o.setName("tribe").setDescription("Target").setRequired(true)).addIntegerOption(o => o.setName("amount").setDescription("Reward").setRequired(true)),
+  new SlashCommandBuilder().setName("add-item").setDescription("Add shop item (Staff)").addStringOption(o => o.setName("name").setDescription("Name").setAutocomplete(true).setRequired(true)).addIntegerOption(o => o.setName("price").setDescription("Price").setRequired(true)).addStringOption(o => o.setName("category").setDescription("Type").addChoices({name:'Dino', value:'dino'}, {name:'Item', value:'item'}).setRequired(true)),
+  new SlashCommandBuilder().setName("remove-item").setDescription("Remove shop item (Staff)").addStringOption(o => o.setName("item").setDescription("Item").setAutocomplete(true).setRequired(true)),
+  new SlashCommandBuilder().setName("add-coins").setDescription("Grant Tek Coins (Staff)").addUserOption(o => o.setName("target").setRequired(true)).addIntegerOption(o => o.setName("amount").setRequired(true)),
+  new SlashCommandBuilder().setName("list-tribes").setDescription("View server database"),
+  new SlashCommandBuilder().setName("kick-member").setDescription("Purge survivor (Staff)").addUserOption(o => o.setName("target").setDescription("User").setRequired(true)),
+  new SlashCommandBuilder().setName("post-info").setDescription("Deploy Reg Interface"),
+  new SlashCommandBuilder().setName("post-support").setDescription("Deploy SOS Terminal"),
+  new SlashCommandBuilder().setName("post-alpha-terminal").setDescription("Deploy Alpha Terminal"),
+  new SlashCommandBuilder().setName("post-recruitment").setDescription("Deploy LFT Terminal"),
+  new SlashCommandBuilder().setName("post-shop").setDescription("Deploy Market Terminal"),
   new SlashCommandBuilder().setName("setup").setDescription("Configure Overseer protocols")
     .addRoleOption(o => o.setName("role").setDescription("Staff Role").setRequired(true))
-    .addChannelOption(o => o.setName("logs").setDescription("Logs").setRequired(true))
-    .addChannelOption(o => o.setName("welcome").setDescription("Welcome").setRequired(true))
-    .addChannelOption(o => o.setName("rules").setDescription("Rules").setRequired(true))
-    .addChannelOption(o => o.setName("info").setDescription("Info").setRequired(true))
-    .addChannelOption(o => o.setName("recruitment").setDescription("Recruit").setRequired(true))
-    .addChannelOption(o => o.setName("support").setDescription("Support").setRequired(true))
-    .addChannelOption(o => o.setName("category").setDescription("Category").addChannelTypes(ChannelType.GuildCategory).setRequired(true))
+    .addChannelOption(o => o.setName("logs").setRequired(true))
+    .addChannelOption(o => o.setName("welcome").setRequired(true))
+    .addChannelOption(o => o.setName("rules").setRequired(true))
+    .addChannelOption(o => o.setName("info").setRequired(true))
+    .addChannelOption(o => o.setName("recruitment").setRequired(true))
+    .addChannelOption(o => o.setName("support").setRequired(true))
+    .addChannelOption(o => o.setName("category").addChannelTypes(ChannelType.GuildCategory).setRequired(true))
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  new SlashCommandBuilder().setName("join").setDescription("Sync with existing tribe").addStringOption(o => o.setName("tribe_name").setDescription("Search Tribe").setAutocomplete(true).setRequired(true)),
 ];
 
 // 2. Client Setup
@@ -245,66 +246,96 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             await db.update(tribeRegistrationsTable).set({ tekCoins: u.tekCoins - it.price }).where(eq(tribeRegistrationsTable.id, u.id));
             await postToStaffLog(i.guildId!, new EmbedBuilder().setTitle("💰 PURCHASE").setDescription(`<@${i.user.id}> bought **${n}** for ${it.price}`).setColor(Colors.Green));
             return i.editReply("✅ Success. Staff notified.");
-        }
-        if (i.commandName === "add-item") {
-            if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff only.");
-            await db.insert(shopItemsTable).values({ guildId: i.guildId!, itemName: i.options.getString("name", true), price: i.options.getInteger("price", true), category: i.options.getString("category", true) });
-            return i.editReply("✅ Added to shop.");
-        }
-        if (i.commandName === "remove-item") {
-            if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff only.");
-            await db.delete(shopItemsTable).where(and(eq(shopItemsTable.itemName, i.options.getString("item", true)), eq(shopItemsTable.guildId, i.guildId!)));
-            return i.editReply("✅ Removed.");
-        }
-        if (i.commandName === "list-tribes") {
-            if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff only.");
-            const regs = await db.select().from(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.guildId, i.guildId!)).orderBy(tribeRegistrationsTable.tribeName);
-            const e = new EmbedBuilder().setTitle("🌐 DB").setColor(OVERSEER_COLOR);
-            regs.slice(0, 25).forEach(r => e.addFields({ name: `[${r.tribeName}] ${r.ign}`, value: `Xbox: ${r.xboxGamertag} | Status: ${r.status}`, inline: false }));
-            return i.editReply({ embeds: [e] });
-        }
-        if (i.commandName === "kick-member") {
-            if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff only.");
-            const target = i.options.getUser("target", true);
-            const [r] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, target.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
-            if (!r) return i.editReply("Not found.");
-            await db.delete(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, target.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
-            return i.editReply(`✅ Purged <@${target.id}>.`);
-        }
-        if (i.commandName === "bounty") {
-            const t = i.options.getString("tribe", true);
-            const a = i.options.getInteger("amount", true);
-            const [u] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
-            if (!u || u.tekCoins < a) return i.editReply("❌ Not enough coins.");
-            await db.update(tribeRegistrationsTable).set({ tekCoins: u.tekCoins - a }).where(eq(tribeRegistrationsTable.id, u.id));
-            await db.insert(bountiesTable).values({ guildId: i.guildId!, targetTribe: t, reward: a, placedBy: i.user.id });
-            return i.editReply({ embeds: [new EmbedBuilder().setTitle("🚨 BOUNTY").setDescription(`Reward of **${a}** on tribe **${t}**!`).setColor(Colors.Red)] });
-        }
-        if (i.commandName === "setup") {
-            const o = i.options;
-            await db.insert(guildConfigTable).values({ guildId: i.guildId!, adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id }).onConflictDoUpdate({ target: guildConfigTable.guildId, set: { adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id } });
-            return i.editReply("✅ Configured.");
-        }
-        if (["post-info", "post-support", "post-alpha-terminal", "post-recruitment"].includes(i.commandName)) {
-            const e = new EmbedBuilder().setColor(OVERSEER_COLOR);
-            let row = new ActionRowBuilder<ButtonBuilder>();
-            if (i.commandName === "post-info") { e.setTitle("🛡️ REG").setDescription("Initialize below."); row.addComponents(new ButtonBuilder().setCustomId("btn_start_register").setLabel("Create Tribe").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("btn_start_join").setLabel("Join Tribe").setStyle(ButtonStyle.Primary)); }
-            else if (i.commandName === "post-support") { e.setTitle("🆘 SOS").setDescription("SOS link."); row.addComponents(new ButtonBuilder().setCustomId("btn_open_ticket").setLabel("Contact").setStyle(ButtonStyle.Danger)); }
-            else if (i.commandName === "post-alpha-terminal") { e.setTitle("👑 ALPHA").setDescription("Claim status."); row.addComponents(new ButtonBuilder().setCustomId("btn_alpha_claim").setLabel("Claim").setStyle(ButtonStyle.Secondary)); }
-            else { e.setTitle("📡 RECRUIT").setDescription("LFT link."); row.addComponents(new ButtonBuilder().setCustomId("btn_lft_start").setLabel("Post LFT").setStyle(ButtonStyle.Primary)); }
-            await (i.channel as any).send({ embeds: [e], components: [row] });
-            return i.reply({ content: "Deployed.", ephemeral: true });
-        }
-        if (i.commandName === "help") {
-            const e = new EmbedBuilder().setTitle("🔵 MANUAL").addFields({name:'Commands', value:'/register, /join, /bal, /shop, /bounty'}).setColor(OVERSEER_COLOR);
-            return i.reply({ embeds: [e], ephemeral: true });
-        }
-        if (i.commandName === "my-tribe") {
-            const [reg] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
-            if (!reg) return i.editReply("No record.");
-            return i.editReply({ embeds: [new EmbedBuilder().setTitle(`👤 ${reg.ign}`).addFields({ name: "Tribe", value: reg.tribeName }, { name: "Xbox", value: reg.xboxGamertag }).setColor(OVERSEER_COLOR)] });
-        }
+if (i.isChatInputCommand()) {
+    // A. Defer Check for Database Commands
+    const dbCmds = ["bal", "shop", "buy", "list-tribes", "setup", "kick-member", "bounty", "my-tribe", "add-item", "remove-item", "add-coins", "pay", "leave-tribe"];
+    if (dbCmds.includes(i.commandName)) await i.deferReply({ ephemeral: true });
+
+    // --- ECONOMY ---
+    if (i.commandName === "bal") {
+        const [u] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
+        return i.editReply("💰 **Bank Balance:** " + (u?.tekCoins || 0) + " Tek Coins.");
     }
+    if (i.commandName === "add-coins") {
+        if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff only.");
+        const t = i.options.getUser("target", true);
+        const a = i.options.getInteger("amount", true);
+        await db.update(tribeRegistrationsTable).set({ tekCoins: sql`${tribeRegistrationsTable.tekCoins} + ${a}` }).where(and(eq(tribeRegistrationsTable.discordUserId, t.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
+        return i.editReply(`✅ Granted ${a} coins to <@${t.id}>.`);
+    }
+    if (i.commandName === "pay") {
+        const t = i.options.getUser("target", true);
+        const a = i.options.getInteger("amount", true);
+        const [s] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
+        const [r] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, t.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
+        if (!s || s.tekCoins < a || a <= 0) return i.editReply("❌ Transaction failed: check balance.");
+        if (!r) return i.editReply("❌ Recipient not registered.");
+        await db.update(tribeRegistrationsTable).set({ tekCoins: s.tekCoins - a }).where(eq(tribeRegistrationsTable.id, s.id));
+        await db.update(tribeRegistrationsTable).set({ tekCoins: r.tekCoins + a }).where(eq(tribeRegistrationsTable.id, r.id));
+        return i.editReply(`✅ Transferred ${a} coins to <@${t.id}>.`);
+    }
+
+    // --- MARKET ---
+    if (i.commandName === "shop") {
+        const its = await db.select().from(shopItemsTable).where(eq(shopItemsTable.guildId, i.guildId!));
+        if (its.length === 0) return i.editReply("Shop is empty.");
+        const e = new EmbedBuilder().setTitle("🛒 MARKET").setColor(OVERSEER_COLOR).addFields({ name: "Items", value: its.map(x => `• **${x.itemName}**: ${x.price}`).join("\n") });
+        return i.editReply({ embeds: [e] });
+    }
+    if (i.commandName === "buy") {
+        const n = i.options.getString("item", true);
+        const [u] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
+        const [it] = await db.select().from(shopItemsTable).where(and(eq(shopItemsTable.itemName, n), eq(shopItemsTable.guildId, i.guildId!))).limit(1);
+        if (!it || !u || u.tekCoins < it.price) return i.editReply("❌ Error: Item not found or funds low.");
+        await db.update(tribeRegistrationsTable).set({ tekCoins: u.tekCoins - it.price }).where(eq(tribeRegistrationsTable.id, u.id));
+        await postToStaffLog(i.guildId!, new EmbedBuilder().setTitle("💰 PURCHASE").setDescription(`<@${i.user.id}> bought **${n}**`).setColor(Colors.Green));
+        return i.editReply("✅ Purchase successful. Staff notified.");
+    }
+
+    // --- TRIBE MANAGEMENT ---
+    if (i.commandName === "leave-tribe") {
+        const [reg] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
+        if (!reg) return i.editReply("❌ Record not found.");
+        await db.delete(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.id, reg.id));
+        if (reg.channelId) {
+            const chan: any = await i.guild?.channels.fetch(reg.channelId).catch(() => null);
+            if (chan) await chan.permissionOverwrites.delete(i.user.id).catch(() => null);
+        }
+        await refreshOverseerStatus(client);
+        return i.editReply("✅ You have left the tribe and lost HQ access.");
+    }
+    if (i.commandName === "kick-member") {
+        if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff only.");
+        const t = i.options.getUser("target", true);
+        const [r] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, t.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
+        if (!r) return i.editReply("Survivor not found.");
+        await db.delete(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.id, r.id));
+        if (r.channelId) {
+            const chan: any = await i.guild?.channels.fetch(r.channelId).catch(() => null);
+            if (chan) await chan.permissionOverwrites.delete(t.id).catch(() => null);
+        }
+        return i.editReply(`✅ Purged <@${t.id}>.`);
+    }
+
+    // --- DEPLOYMENTS & SYSTEM ---
+    if (i.commandName === "help") return i.reply({ embeds: [new EmbedBuilder().setTitle("💠 OVERSEER MANUAL").addFields({name:'Commands', value:'/register, /join, /bal, /shop, /pay, /lft, /leave-tribe'})], ephemeral: true });
+    if (i.commandName === "setup") {
+        const o = i.options;
+        await db.insert(guildConfigTable).values({ guildId: i.guildId!, adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id }).onConflictDoUpdate({ target: guildConfigTable.guildId, set: { adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id } });
+        return i.editReply("✅ Configured.");
+    }
+    if (["post-info", "post-support", "post-alpha-terminal", "post-recruitment", "post-shop"].includes(i.commandName)) {
+        const e = new EmbedBuilder().setColor(OVERSEER_COLOR);
+        let row = new ActionRowBuilder<ButtonBuilder>();
+        if (i.commandName === "post-info") { e.setTitle("🛡️ REGISTRATION"); row.addComponents(new ButtonBuilder().setCustomId("btn_start_register").setLabel("Create Tribe").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("btn_start_join").setLabel("Join Tribe").setStyle(ButtonStyle.Primary)); }
+        else if (i.commandName === "post-support") { e.setTitle("🆘 SOS").setDescription("Click for support."); row.addComponents(new ButtonBuilder().setCustomId("btn_open_ticket").setLabel("Contact").setStyle(ButtonStyle.Danger)); }
+        else if (i.commandName === "post-shop") { e.setTitle("🛒 MARKET").setDescription("View live inventory."); row.addComponents(new ButtonBuilder().setCustomId("btn_shop_view").setLabel("View Inventory").setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId("btn_bal_check").setLabel("Check Bank").setStyle(ButtonStyle.Secondary)); }
+        else if (i.commandName === "post-alpha-terminal") { e.setTitle("👑 ALPHA").setDescription("Claim status."); row.addComponents(new ButtonBuilder().setCustomId("btn_alpha_claim").setLabel("Claim").setStyle(ButtonStyle.Secondary)); }
+        else { e.setTitle("📡 RECRUIT").setDescription("LFT link."); row.addComponents(new ButtonBuilder().setCustomId("btn_lft_start").setLabel("Post LFT").setStyle(ButtonStyle.Primary)); }
+        await (i.channel as any).send({ embeds: [e], components: [row] });
+        return i.reply({ content: "Deployed.", ephemeral: true });
+    }
+}
 
     // --- Modals ---
     if (i.isModalSubmit()) {
