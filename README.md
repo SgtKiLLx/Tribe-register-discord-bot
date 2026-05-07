@@ -1,81 +1,71 @@
-💠 OVERSEER | SYSTEM SPECIFICATIONS
+Here is the comprehensive public command list for Overseer v1.4. These are the
+protocols available to every survivor on the server.
 
-The "Tek Tier" Tribe Management Suite for Ark: Survival Evolved.
+👤 Survivor Protocols (General)
 
-Overseer is not just a bot; it is a fully integrated ecosystem consisting of a
-high-performance Discord automation engine, a persistent PostgreSQL database,
-and a modern Android-inspired Web Command Center.
+  - /register
+      - Action: Initialize a new tribe signature.
+      - Result: Starts the Gatekeeper protocol. Staff will review your request.
+        Upon approval, your private HQ is created and your nickname is synced.
+  - /join
+      - Action: Sync with an existing tribe.
+      - Feature: Uses intelligent autocomplete to find registered tribes.
+  - /lft
+      - Action: Post a recruitment resume.
+      - Inputs: Playstyle (PVP/PVE), Hours played, and specialized skills.
+      - Result: Broadcasts your profile to the #recruit-channels.
+  - /my-tribe
+      - Action: Displays your currently stored signature, IGN, and Xbox
+        Gamertag.
+  - /leave-tribe
+      - Action: Exit your current tribe roster and revoke your access to the
+        private HQ.
+  - /help
+      - Action: Displays the full system manual.
 
-📂 SURVIVOR PROTOCOLS (Public Features)
+💰 Economy & Bounties (Tek Coins)
 
-  - Automated Registration: Survivors initialize their tribe signature via a
-    sleek button-interface.
-  - Join Logic: New members can search for and sync with existing tribes using
-    intelligent autocomplete.
-  - Identity Synchronization: Upon registration, Discord nicknames are
-    automatically synced to the [Tribe] In-Game Name format for server-wide
-    accountability.
-  - Recruitment Terminal: Solo survivors can deploy LFT (Looking For Tribe)
-    resumes to a dedicated recruitment feed, detailing their playstyle, hours,
-    and specialized skills.
-  - Survivor Profile: Survivors can access /my-tribe at any time to view their
-    registered signature and Xbox credentials.
+  - /bal
+      - Action: Check your current Tek Coin balance.
+      - Note: You earn Tek Coins passively by being active and chatting in the
+        Discord (2-minute cooldown per coin).
+  - /bounty [tribe_name] [amount]
+      - Action: Place a hit on a rival tribe.
+      - Result: Deducts coins from your bank and broadcasts a "Most Wanted"
+        alert to the server.
 
-🏰 TRIBE OPERATIONS (Private HQ Features)
+🛡️ Tribe HQ Interface (Inside Private Channels)
 
-Every tribe receives an automated Private Text Headquarters upon registration,
-featuring a persistent Tribe Dashboard:
+Once verified, these buttons appear at the top of your private tribe
+headquarters:
 
-  - 🚨 Raid Alert Protocol: A high-priority "Panic Button" that pings the entire
-    tribe and alerts staff of incoming hostiles.
-  - 📜 Live Roster: View an instant list of all registered members within your
-    specific tribe.
-  - 🎁 Starter Kit Integration: A secure, one-time request system for server kits
-    that logs directly to staff.
-  - 📋 Task Management: Post tribe-specific missions (e.g., "Need 50k Metal") for
-    team coordination directly within the private channel.
+  - 🚨 RAID ALERT
+      - Action: High-priority transmission. Pings every member of your tribe and
+        alerts staff that your base is under attack.
+  - 📜 Roster
+      - Action: Displays a live list of all verified survivors in your tribe.
+  - 📋 Add Task
+      - Action: Post a mission (e.g., "Grind 20k Gunpowder") to the channel for
+        team coordination.
+  - 🎁 Claim Kit
+      - Action: Request a one-time starter kit. Staff is notified in the
+        intelligence feed.
 
-🛡️ MASTER COMMAND (Staff & Admin Features)
+🆘 Support & Alpha Claims (Interactive Terminals)
 
-  - Neural Setup: A one-time /setup protocol to link all server sectors
-    (Welcome, Rules, Info, Logs, Recruitment, Support).
-  - Intelligence Feed: Every survivor action—from registration to kit
-    requests—is logged in real-time to the staff headquarters.
-  - Global Database: Access a full audit of every registered tribe and survivor
-    signature with a single command.
-  - Alpha Authorization: A specialized terminal for dominant tribes to claim
-    "Alpha Status," requiring coordinate and roster verification.
-  - Support SOS: An automated ticket system that opens secure, private threads
-    between survivors and staff.
+  - [Contact Support] Button (Found in #support)
+      - Action: Opens a Private SOS Thread. This is a secure line between you
+        and the server staff.
+  - [Claim Alpha] Button (Found in #alpha-claims)
+      - Action: If your tribe is dominant, submit your base coordinates and
+        member count for official Alpha Authorization.
 
-🖥️ THE COMMAND CENTER (Web & Mobile App)
+📢 Automatic Protocols
 
-A stealth-styled, Android 17-inspired Dashboard for real-time monitoring and
-off-Discord management:
+  - Passive Income: 1 Tek Coin granted for activity every 2 minutes.
+  - Identity Sync: Automatic [Tribe] Name tagging upon staff approval.
+  - Gatekeeper Security: All new registrations are held in "Pending" until a
+    staff member verifies the signature.
 
-  - Strategic Map Overlay: A tactical view of Fjordur with live-pulsing pins
-    marking the location of every verified Alpha base.
-  - Data Management: Full CRUD capabilities—Wipe problematic survivors or
-    authorize Alpha claims with one click from your phone or browser.
-  - Network Statistics: Live tracking of "Network Load" (Active Tribes) and
-    "Survivor Population."
-  - Material Design: A high-end UI featuring full-section glowing navigation,
-    glassmorphism, and high-contrast typography.
-
-🦾 TECHNICAL ARCHITECTURE
-
-  - Core: TypeScript / Node.js
-  - Database: Neon PostgreSQL (Persistent Cloud Storage)
-  - Framework: Next.js 14 (Command Center)
-  - Host: Render (Bot) / Vercel (Web Dashboard)
-  - Stability: 24/7 Heartbeat monitoring via automated pinger protocols.
-
-🚀 FUTURE DIRECTIVES (Coming Soon)
-
-  - Whitelist Terminal: One-click export of Xbox IDs for Nitrado/G-Portal
-    integration.
-  - Global Broadcast: Send system-wide alerts from the Web Dashboard to every
-    Tribe HQ simultaneously.
-  - Economic Protocol: Survivor-driven market and "Tek Coin" integration.
-
-SYSTEM STATUS: NOMINAL. THE ARK IS UNDER WATCH. 🦖💠🦾
+Survivor Tip: If you just joined, head to the registration channel and click
+[Create Tribe] or [Join Tribe] to begin the initialization sequence! 🦖💠💰🦾
