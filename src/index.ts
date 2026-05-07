@@ -12,7 +12,6 @@ const token = process.env.DISCORD_BOT_TOKEN;
 const applicationId = process.env.DISCORD_APPLICATION_ID;
 const OVERSEER_COLOR = 0x00ffff; 
 
-// --- Memory Systems ---
 const coinCooldown = new Set();
 const ARK_ASSETS = [
     "Rex (High Level)", "Giganotosaurus", "Carcharodontosaurus", "Wyvern (Lightning)", 
@@ -23,23 +22,32 @@ const ARK_ASSETS = [
 
 if (!token || !applicationId) process.exit(1);
 
-// --- Helpers ---
+// --- Robust Staff Check Helper ---
+async function isOverseerStaff(interaction: Interaction): Promise<boolean> {
+    if (!interaction.guildId || !interaction.member) return false;
+    const member = interaction.member as GuildMember;
+    
+    // 1. Always allow users with Discord "Administrator" permission
+    if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+
+    // 2. Check database for specific Staff Role IDs
+    try {
+        const [config] = await db.select().from(guildConfigTable).where(eq(guildConfigTable.guildId, interaction.guildId)).limit(1);
+        if (!config?.adminRoleIds) return false;
+        
+        const allowedRoles = config.adminRoleIds.split(",").map(id => id.trim()).filter(id => id.length > 0);
+        return member.roles.cache.some(role => allowedRoles.includes(role.id));
+    } catch (e) {
+        return false;
+    }
+}
+
 async function refreshOverseerStatus(client: Client) {
     try {
         const tribes = await db.select({ name: tribeRegistrationsTable.tribeName }).from(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.status, 'verified'));
         const count = new Set(tribes.map(t => t.name)).size;
         client.user?.setActivity("over " + count + " Tribes", { type: ActivityType.Watching });
-    } catch (e) { console.error("Status update fail"); }
-}
-
-async function isOverseerStaff(interaction: Interaction): Promise<boolean> {
-    if (!interaction.guildId || !interaction.member) return false;
-    const member = interaction.member as GuildMember;
-    if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
-    const [config] = await db.select().from(guildConfigTable).where(eq(guildConfigTable.guildId, interaction.guildId)).limit(1);
-    if (!config?.adminRoleIds) return false;
-    const allowedRoles = config.adminRoleIds.split(",").map(id => id.trim());
-    return member.roles.cache.some(role => allowedRoles.includes(role.id));
+    } catch (e) { console.error("Status fail"); }
 }
 
 async function postToStaffLog(guildId: string, embed: EmbedBuilder, components: any[] = []) {
@@ -52,7 +60,7 @@ async function postToStaffLog(guildId: string, embed: EmbedBuilder, components: 
 }
 
 function getTribeDashboard(tribeName: string) {
-  const embed = new EmbedBuilder().setTitle(`💠 OVERSEER | HQ: ${tribeName}`).setDescription("Tribe HQ Active. Use protocols for coordination.").setColor(OVERSEER_COLOR);
+  const embed = new EmbedBuilder().setTitle("💠 OVERSEER | HQ: " + tribeName).setDescription("Tribe HQ Active. Use protocols for coordination.").setColor(OVERSEER_COLOR);
   const r1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId("raid_alert").setLabel("RAID ALERT").setStyle(ButtonStyle.Danger).setEmoji("🚨"),
     new ButtonBuilder().setCustomId("claim_kit").setLabel("Claim Kit").setStyle(ButtonStyle.Success).setEmoji("🎁")
@@ -64,7 +72,6 @@ function getTribeDashboard(tribeName: string) {
   return { embeds: [embed], components: [r1, r2] };
 }
 
-// 1. Command Definitions
 const commands = [
   new SlashCommandBuilder().setName("help").setDescription("View the full Overseer manual"),
   new SlashCommandBuilder().setName("bal").setDescription("Check your Tek Coin balance"),
@@ -83,8 +90,8 @@ const commands = [
   new SlashCommandBuilder().setName("post-recruitment").setDescription("Deploy Recruitment Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   new SlashCommandBuilder().setName("post-alpha-terminal").setDescription("Deploy Alpha Terminal").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
   new SlashCommandBuilder().setName("setup").setDescription("Configure Overseer protocols")
-    .addRoleOption(o => o.setName("role").setDescription("Staff Role").setRequired(true))
-    .addChannelOption(o => o.setName("logs").setDescription("Logs").setRequired(true))
+    .addRoleOption(o => o.setName("role").setDescription("Staff Role ID").setRequired(true))
+    .addChannelOption(o => o.setName("logs").setDescription("Staff Logs").setRequired(true))
     .addChannelOption(o => o.setName("welcome").setDescription("Welcome").setRequired(true))
     .addChannelOption(o => o.setName("rules").setDescription("Rules").setRequired(true))
     .addChannelOption(o => o.setName("info").setDescription("Info").setRequired(true))
@@ -94,7 +101,6 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 ];
 
-// 2. Client Setup
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages] });
 
 client.once(Events.ClientReady, async (c) => {
@@ -102,7 +108,7 @@ client.once(Events.ClientReady, async (c) => {
   await refreshOverseerStatus(c);
 });
 
-// Passive Income
+// Economy Loop
 client.on(Events.MessageCreate, async (msg) => {
     if (msg.author.bot || !msg.guildId || coinCooldown.has(msg.author.id)) return;
     try {
@@ -112,230 +118,201 @@ client.on(Events.MessageCreate, async (msg) => {
     } catch (e) {}
 });
 
-// Welcome
-client.on(Events.GuildMemberAdd, async (m) => {
-    try {
-        const [cfg] = await db.select().from(guildConfigTable).where(eq(guildConfigTable.guildId, m.guild.id)).limit(1);
-        if (!cfg?.welcomeChannelId) return;
-        const c: any = await m.guild.channels.fetch(cfg.welcomeChannelId);
-        const e = new EmbedBuilder().setTitle("🔵 NEW SURVIVOR DETECTED").setThumbnail(m.user.displayAvatarURL()).setColor(OVERSEER_COLOR).setDescription(`Welcome <@${m.id}>. protocols initialized.`)
-            .addFields({ name: "📜 DIRECTIVES", value: `<#${cfg.rulesChannelId}> | <#${cfg.infoChannelId}>` });
-        await c.send({ content: `Welcome Survivor, <@${m.id}>`, embeds: [e] });
-        const dm = new EmbedBuilder().setTitle("💠 OVERSEER | DIRECTIVES").setColor(OVERSEER_COLOR).setDescription("Use buttons in #register-tribe or `/help` to begin.");
-        await m.send({ embeds: [dm] }).catch(() => null);
-    } catch (e) {}
-});
-
-// 3. Interactions
+// Interaction Handler
 client.on(Events.InteractionCreate, async (i: Interaction) => {
-  if (i.isAutocomplete()) {
-    const focused = i.options.getFocused().toLowerCase();
-    if (i.commandName === "join") {
-        const tribes = await db.select({ name: tribeRegistrationsTable.tribeName }).from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.guildId, i.guildId!), eq(tribeRegistrationsTable.status, 'verified')));
-        const filtered = [...new Set(tribes.map(t => t.name))].filter(n => n.toLowerCase().includes(focused)).slice(0, 25);
-        return i.respond(filtered.map(n => ({ name: n, value: n })));
-    }
-    if (i.commandName === "add-item") {
-        const filtered = ARK_ASSETS.filter(a => a.toLowerCase().includes(focused)).slice(0, 25);
-        return i.respond(filtered.map(a => ({ name: a, value: a })));
-    }
-    if (i.commandName === "buy" || i.commandName === "remove-item") {
-        const items = await db.select().from(shopItemsTable).where(eq(shopItemsTable.guildId, i.guildId!));
-        const filtered = items.filter(it => it.itemName.toLowerCase().includes(focused)).slice(0, 25);
-        return i.respond(filtered.map(it => ({ name: `${it.itemName} (${it.price} coins)`, value: it.itemName })));
-    }
-  }
-
-  if (i.isButton()) {
-    const [reg] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
-    
-    if (i.customId.startsWith("gate_accept:") || i.customId.startsWith("gate_deny:")) {
-        if (!(await isOverseerStaff(i))) return i.reply({ content: "❌ Staff only.", ephemeral: true });
-        const [action, tId] = i.customId.split(":");
-        await i.deferReply({ ephemeral: true });
-        if (action === "gate_accept") {
-            const [p] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, tId), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
-            if (!p) return i.editReply("Error.");
-            await db.update(tribeRegistrationsTable).set({ status: 'verified' }).where(eq(tribeRegistrationsTable.id, p.id));
-            const [cfg] = await db.select().from(guildConfigTable).where(eq(guildConfigTable.guildId, i.guildId!)).limit(1);
-            const chan = await i.guild?.channels.create({ name: p.tribeName.toLowerCase().replace(/\s+/g, '-'), type: ChannelType.GuildText, parent: cfg?.tribeCategoryId || undefined, permissionOverwrites: [{ id: i.guild!.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }, { id: tId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }, { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] });
-            if (chan) await (chan as any).send(getTribeDashboard(p.tribeName));
-            const mem = await i.guild?.members.fetch(tId).catch(() => null);
-            if (mem?.manageable) await mem.setNickname(`[${p.tribeName}] ${p.ign}`);
-            await i.editReply("✅ Verified.");
-        } else {
-            await db.delete(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, tId), eq(tribeRegistrationsTable.guildId, i.guildId!)));
-            await i.editReply("❌ Denied.");
+  try {
+    if (i.isAutocomplete()) {
+        const focused = i.options.getFocused().toLowerCase();
+        if (i.commandName === "join") {
+            const tribes = await db.select({ name: tribeRegistrationsTable.tribeName }).from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.guildId, i.guildId!), eq(tribeRegistrationsTable.status, 'verified')));
+            const filtered = [...new Set(tribes.map(t => t.name))].filter(n => n.toLowerCase().includes(focused)).slice(0, 25);
+            return i.respond(filtered.map(n => ({ name: n, value: n })));
         }
-        return;
+        if (i.commandName === "add-item") {
+            const filtered = ARK_ASSETS.filter(a => a.toLowerCase().includes(focused)).slice(0, 25);
+            return i.respond(filtered.map(a => ({ name: a, value: a })));
+        }
+        if (i.commandName === "buy" || i.commandName === "remove-item") {
+            const items = await db.select().from(shopItemsTable).where(eq(shopItemsTable.guildId, i.guildId!));
+            const filtered = items.filter(it => it.itemName.toLowerCase().includes(focused)).slice(0, 25);
+            return i.respond(filtered.map(it => ({ name: `${it.itemName} (${it.price} coins)`, value: it.itemName })));
+        }
     }
 
-    if (i.customId === "btn_open_ticket") {
-        await i.deferReply({ ephemeral: true });
-        const t = await (i.channel as any).threads.create({ name: "ticket-" + i.user.username, type: ChannelType.PrivateThread });
-        await t.members.add(i.user.id);
-        await t.send("**Transmission Received.** <@" + i.user.id + ">, staff alerted.");
-        return i.editReply(`✅ Ticket Opened: <#${t.id}>`);
-    }
+    if (i.isButton()) {
+        const [reg] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
+        
+        if (i.customId.startsWith("gate_accept:") || i.customId.startsWith("gate_deny:")) {
+            await i.deferReply({ ephemeral: true });
+            if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff clearance required.");
+            const [action, tId] = i.customId.split(":");
+            if (action === "gate_accept") {
+                const [p] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, tId), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
+                if (!p) return i.editReply("Error.");
+                await db.update(tribeRegistrationsTable).set({ status: 'verified' }).where(eq(tribeRegistrationsTable.id, p.id));
+                const [cfg] = await db.select().from(guildConfigTable).where(eq(guildConfigTable.guildId, i.guildId!)).limit(1);
+                const chan = await i.guild?.channels.create({ name: p.tribeName.toLowerCase().replace(/\s+/g, '-'), type: ChannelType.GuildText, parent: cfg?.tribeCategoryId || undefined, permissionOverwrites: [{ id: i.guild!.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }, { id: tId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }, { id: client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] });
+                if (chan) await (chan as any).send(getTribeDashboard(p.tribeName));
+                const mem = await i.guild?.members.fetch(tId).catch(() => null);
+                if (mem?.manageable) await mem.setNickname("[" + p.tribeName + "] " + p.ign);
+                await i.editReply("✅ Verified.");
+            } else {
+                await db.delete(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, tId), eq(tribeRegistrationsTable.guildId, i.guildId!)));
+                await i.editReply("❌ Denied.");
+            }
+            return;
+        }
 
-    if (["btn_start_register", "btn_start_join", "btn_lft_start", "btn_alpha_claim"].includes(i.customId)) {
-        const id = i.customId === "btn_start_register" ? "modal_reg" : i.customId === "btn_start_join" ? "modal_join" : i.customId === "btn_alpha_claim" ? "modal_alpha" : "modal_lft";
-        const m = new ModalBuilder().setCustomId(id).setTitle("Overseer Terminal");
-        if (id === "modal_lft") {
-            m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("style").setLabel("Playstyle").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("hours").setLabel("Hours").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("desc").setLabel("Skills").setStyle(TextInputStyle.Paragraph).setRequired(true)));
-        } else if (id === "modal_alpha") {
-            m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("tribe").setLabel("Tribe").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("coords").setLabel("Coords").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("members").setLabel("Members").setStyle(TextInputStyle.Short).setRequired(true)));
-        } else {
-            m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("tribe").setLabel("Tribe Name").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("ign").setLabel("IGN").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("xbox").setLabel("Xbox Gamertag").setStyle(TextInputStyle.Short).setRequired(true)));
+        if (i.customId === "btn_open_ticket") {
+            await i.deferReply({ ephemeral: true });
+            const t = await (i.channel as any).threads.create({ name: "ticket-" + i.user.username, type: ChannelType.PrivateThread, autoArchiveDuration: ThreadAutoArchiveDuration.OneDay });
+            await t.members.add(i.user.id);
+            await t.send("**Transmission Received.** <@" + i.user.id + ">, explain your situation. Staff alerted.");
+            return i.editReply("✅ Ticket: <#" + t.id + ">");
         }
-        return i.showModal(m);
-    }
 
-    if (reg && reg.status === 'verified') {
-        if (i.customId === "raid_alert") return i.reply({ content: "🚨 **RAID ALERT!** <@" + i.user.id + "> reports attack! @everyone", allowedMentions: { parse: ['everyone'] } });
-        if (i.customId === "claim_kit") {
-            if (reg.hasClaimedKit) return i.reply({ content: "❌ Already claimed.", ephemeral: true });
-            await postToStaffLog(i.guildId!, new EmbedBuilder().setTitle("🎁 Kit Request").setDescription(`<@${i.user.id}> requested kit for **${reg.tribeName}**.`).setColor(Colors.Green));
-            await db.update(tribeRegistrationsTable).set({ hasClaimedKit: true }).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
-            return i.reply({ content: "✅ Requested!", ephemeral: true });
-        }
-        if (i.customId === "view_roster") {
-            const mems = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.tribeName, reg.tribeName), eq(tribeRegistrationsTable.guildId, i.guildId!), eq(tribeRegistrationsTable.status, 'verified')));
-            return i.reply({ content: "📜 **Roster:**\n" + mems.map(m => "• " + m.ign).join("\n"), ephemeral: true });
-        }
-        if (i.customId === "add_task") {
-            const m = new ModalBuilder().setCustomId("modal_task").setTitle("Add Task");
-            m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("content").setLabel("Details").setStyle(TextInputStyle.Paragraph).setRequired(true)));
+        if (["btn_start_register", "btn_start_join", "btn_lft_start", "btn_alpha_claim"].includes(i.customId)) {
+            const modalId = i.customId === "btn_start_register" ? "modal_reg" : i.customId === "btn_start_join" ? "modal_join" : i.customId === "btn_alpha_claim" ? "modal_alpha" : "modal_lft";
+            const m = new ModalBuilder().setCustomId(modalId).setTitle("Overseer Terminal");
+            if (modalId === "modal_lft") {
+                m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("style").setLabel("Playstyle").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("hours").setLabel("Hours").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("desc").setLabel("Skills").setStyle(TextInputStyle.Paragraph).setRequired(true)));
+            } else if (modalId === "modal_alpha") {
+                m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("tribe").setLabel("Tribe").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("coords").setLabel("Coords").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("members").setLabel("Members").setStyle(TextInputStyle.Short).setRequired(true)));
+            } else {
+                m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("tribe").setLabel("Tribe Name").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("ign").setLabel("IGN").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("xbox").setLabel("Xbox Gamertag").setStyle(TextInputStyle.Short).setRequired(true)));
+            }
             return i.showModal(m);
         }
-    }
-  }
 
-  if (i.isChatInputCommand()) {
-    if (i.commandName === "bal") {
-        const [u] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
-        return i.reply({ content: "💰 **Bank Balance:** " + (u?.tekCoins || 0) + " Tek Coins.", ephemeral: true });
-    }
-    if (i.commandName === "shop") {
-        const its = await db.select().from(shopItemsTable).where(eq(shopItemsTable.guildId, i.guildId!));
-        if (its.length === 0) return i.reply({ content: "Shop empty.", ephemeral: true });
-        const e = new EmbedBuilder().setTitle("🛒 MARKET").setColor(OVERSEER_COLOR).setDescription("Use `/buy` to purchase.");
-        e.addFields({ name: "Items", value: its.map(x => `• **${x.itemName}**: ${x.price}`).join("\n") });
-        return i.reply({ embeds: [e] });
-    }
-    if (i.commandName === "buy") {
-        const n = i.options.getString("item", true);
-        const [u] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
-        const [it] = await db.select().from(shopItemsTable).where(and(eq(shopItemsTable.itemName, n), eq(shopItemsTable.guildId, i.guildId!))).limit(1);
-        if (!it) return i.reply({ content: "❌ Item not found.", ephemeral: true });
-        if (!u || u.tekCoins < it.price) return i.reply({ content: "❌ Not enough coins.", ephemeral: true });
-        await db.update(tribeRegistrationsTable).set({ tekCoins: u.tekCoins - it.price }).where(eq(tribeRegistrationsTable.id, u.id));
-        await postToStaffLog(i.guildId!, new EmbedBuilder().setTitle("💰 PURCHASE").setDescription(`<@${i.user.id}> bought **${n}** for **${it.price}** coins.`).setColor(Colors.Green));
-        return i.reply({ content: `✅ Success. You bought **${n}**. Staff notified for delivery.`, ephemeral: true });
-    }
-    if (i.commandName === "add-item") {
-        if (!(await isOverseerStaff(i))) return i.reply("Staff only.");
-        await db.insert(shopItemsTable).values({ guildId: i.guildId!, itemName: i.options.getString("name", true), price: i.options.getInteger("price", true), category: i.options.getString("category", true) });
-        return i.reply("✅ Item added.");
-    }
-    if (i.commandName === "remove-item") {
-        if (!(await isOverseerStaff(i))) return i.reply("Staff only.");
-        await db.delete(shopItemsTable).where(and(eq(shopItemsTable.itemName, i.options.getString("item", true)), eq(shopItemsTable.guildId, i.guildId!)));
-        return i.reply("✅ Item removed.");
-    }
-    if (i.commandName === "list-tribes") {
-        await i.deferReply({ ephemeral: true });
-        if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff only.");
-        const regs = await db.select().from(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.guildId, i.guildId!)).orderBy(tribeRegistrationsTable.tribeName);
-        const e = new EmbedBuilder().setTitle("🌐 GLOBAL DATABASE").setColor(OVERSEER_COLOR);
-        if (regs.length === 0) return i.editReply("Empty sector.");
-        regs.slice(0, 25).forEach(r => e.addFields({ name: `[${r.tribeName}] ${r.ign}`, value: `Xbox: ${r.xboxGamertag} | <@${r.discordUserId}>`, inline: false }));
-        return i.editReply({ embeds: [e] });
-    }
-    if (i.commandName === "kick-member") {
-        await i.deferReply({ ephemeral: true });
-        if (!(await isOverseerStaff(i))) return i.editReply("Staff only.");
-        const target = i.options.getUser("target", true);
-        const [r] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, target.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
-        if (!r) return i.editReply("Player not found.");
-        await db.delete(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, target.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
-        if (r.channelId) {
-            const chan: any = await i.guild?.channels.fetch(r.channelId).catch(() => null);
-            if (chan) await chan.permissionOverwrites.delete(target.id);
+        if (reg && reg.status === 'verified') {
+            if (i.customId === "raid_alert") return i.reply({ content: "🚨 **RAID ALERT!** <@" + i.user.id + "> reports attack! @everyone", allowedMentions: { parse: ['everyone'] } });
+            if (i.customId === "claim_kit") {
+                if (reg.hasClaimedKit) return i.reply({ content: "❌ Already claimed.", ephemeral: true });
+                await postToStaffLog(i.guildId!, new EmbedBuilder().setTitle("🎁 Kit Request").setDescription("<@" + i.user.id + "> requested kit for **" + reg.tribeName + "**.").setColor(Colors.Green));
+                await db.update(tribeRegistrationsTable).set({ hasClaimedKit: true }).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
+                return i.reply({ content: "✅ Requested!", ephemeral: true });
+            }
+            if (i.customId === "view_roster") {
+                const mems = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.tribeName, reg.tribeName), eq(tribeRegistrationsTable.guildId, i.guildId!), eq(tribeRegistrationsTable.status, 'verified')));
+                return i.reply({ content: "📜 **Roster:**\n" + mems.map(m => "• " + m.ign).join("\n"), ephemeral: true });
+            }
+            if (i.customId === "add_task") {
+                const m = new ModalBuilder().setCustomId("modal_task").setTitle("Add Task");
+                m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("content").setLabel("Details").setStyle(TextInputStyle.Paragraph).setRequired(true)));
+                return i.showModal(m);
+            }
         }
-        return i.editReply(`✅ Purged <@${target.id}>.`);
     }
-    if (i.commandName === "setup") {
-        const o = i.options;
-        await db.insert(guildConfigTable).values({ guildId: i.guildId!, adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id }).onConflictDoUpdate({ target: guildConfigTable.guildId, set: { adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id } });
-        return i.reply("✅ Protocol Configured.");
-    }
-    if (i.commandName === "bounty") {
-        const t = i.options.getString("tribe", true);
-        const a = i.options.getInteger("amount", true);
-        const [u] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
-        if (!u || u.tekCoins < a) return i.reply({ content: "❌ Insufficient coins.", ephemeral: true });
-        await db.update(tribeRegistrationsTable).set({ tekCoins: u.tekCoins - a }).where(eq(tribeRegistrationsTable.id, u.id));
-        await db.insert(bountiesTable).values({ guildId: i.guildId!, targetTribe: t, reward: a, placedBy: i.user.id });
-        return i.reply({ embeds: [new EmbedBuilder().setTitle("🚨 BOUNTY INITIALIZED").setDescription(`Reward of **${a} coins** on tribe **${t}**!`).setColor(Colors.Red)] });
-    }
-    if (["post-info", "post-support", "post-alpha-terminal", "post-recruitment"].includes(i.commandName)) {
-        const e = new EmbedBuilder().setColor(OVERSEER_COLOR);
-        let row = new ActionRowBuilder<ButtonBuilder>();
-        if (i.commandName === "post-info") {
-            e.setTitle("🛡️ REGISTRATION").setDescription("Initialize signature below.");
-            row.addComponents(new ButtonBuilder().setCustomId("btn_start_register").setLabel("Create Tribe").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("btn_start_join").setLabel("Join Tribe").setStyle(ButtonStyle.Primary));
-        } else if (i.commandName === "post-support") {
-            e.setTitle("🆘 SUPPORT").setDescription("Click below for SOS.");
-            row.addComponents(new ButtonBuilder().setCustomId("btn_open_ticket").setLabel("Contact Support").setStyle(ButtonStyle.Danger));
-        } else if (i.commandName === "post-alpha-terminal") {
-            e.setTitle("👑 ALPHA CLAIM").setDescription("Submit dominance claim.").setColor(Colors.Gold);
-            row.addComponents(new ButtonBuilder().setCustomId("btn_alpha_claim").setLabel("Claim Alpha").setStyle(ButtonStyle.Secondary));
-        } else {
-            e.setTitle("📡 RECRUITMENT").setDescription("Looking for a tribe? Click below.");
-            row.addComponents(new ButtonBuilder().setCustomId("btn_lft_start").setLabel("Post LFT Profile").setStyle(ButtonStyle.Primary));
-        }
-        await (i.channel as any).send({ embeds: [e], components: [row] });
-        return i.reply({ content: "Terminal Deployed.", ephemeral: true });
-    }
-  }
 
-  if (i.isModalSubmit()) {
-    if (i.customId === "modal_reg" || i.customId === "modal_join") {
-        const tN = i.fields.getTextInputValue("tribe").trim();
-        const xb = i.fields.getTextInputValue("xbox").trim();
-        const ign = i.fields.getTextInputValue("ign").trim();
-        await i.deferReply({ ephemeral: true });
-        try {
-            await db.insert(tribeRegistrationsTable).values({ guildId: i.guildId!, tribeName: tN, ign, xboxGamertag: xb, discordUserId: i.user.id, discordUsername: i.user.username, status: "pending", isOwner: (i.customId === 'modal_reg') });
-            const e = new EmbedBuilder().setTitle("🛡️ PENDING SIGNATURE").setDescription(`<@${i.user.id}> -> **${tN}**.`).addFields({ name: "Xbox", value: xb, inline: true }).setColor(Colors.Orange);
-            const r = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId(`gate_accept:${i.user.id}`).setLabel("Approve").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`gate_deny:${i.user.id}`).setLabel("Deny").setStyle(ButtonStyle.Danger));
-            await postToStaffLog(i.guildId!, e, [r]);
-            await i.editReply("✅ Pending staff approval.");
-        } catch (e) { await i.editReply("❌ Error. Signature already registered."); }
-    }
-    if (i.customId === "modal_alpha") {
-        await db.insert(alphaClaimsTable).values({ guildId: i.guildId!, tribeName: i.fields.getTextInputValue("tribe"), discordUserId: i.user.id, coordinates: i.fields.getTextInputValue("coords"), memberCount: parseInt(i.fields.getTextInputValue("members")) || 0 });
-        await postToStaffLog(i.guildId!, new EmbedBuilder().setTitle("👑 ALPHA CLAIM").setDescription(`<@${i.user.id}> claimed Alpha.`).setColor(OVERSEER_COLOR));
-        await i.reply({ content: "✅ Claim submitted.", ephemeral: true });
-    }
-    if (i.customId === "modal_lft") {
-        const [cfg] = await db.select().from(guildConfigTable).where(eq(guildConfigTable.guildId, i.guildId!)).limit(1);
-        if (cfg?.recruitmentChannelId) {
-            const c: any = await client.channels.fetch(cfg.recruitmentChannelId);
-            await db.insert(recruitmentTable).values({ guildId: i.guildId!, discordUserId: i.user.id, playstyle: i.fields.getTextInputValue("style"), hours: i.fields.getTextInputValue("hours"), description: i.fields.getTextInputValue("desc") });
-            await c.send({ embeds: [new EmbedBuilder().setTitle("🔎 SURVIVOR LFT").addFields({ name: "Survivor", value: `<@${i.user.id}>` }, { name: "Hours", value: i.fields.getTextInputValue("hours") }).setColor(OVERSEER_COLOR)] });
-            await i.reply({ content: "✅ Profile posted!", ephemeral: true });
+    if (i.isChatInputCommand()) {
+        // --- 1. Master Deferral for all DB Commands ---
+        if (["bal", "shop", "buy", "list-tribes", "setup", "kick-member", "bounty", "add-item", "remove-item", "my-tribe"].includes(i.commandName)) {
+            await i.deferReply({ ephemeral: true });
+        }
+
+        if (i.commandName === "setup") {
+            // Setup bypasses isOverseerStaff check because it's for setting staff up
+            // It relies on the command builder's Administrator permission requirement
+            const o = i.options;
+            await db.insert(guildConfigTable).values({ guildId: i.guildId!, adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id }).onConflictDoUpdate({ target: guildConfigTable.guildId, set: { adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id } });
+            return i.editReply("✅ Overseer protocols calibrated.");
+        }
+
+        if (i.commandName === "add-item") {
+            if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff clearance required.");
+            await db.insert(shopItemsTable).values({ guildId: i.guildId!, itemName: i.options.getString("name", true), price: i.options.getInteger("price", true), category: i.options.getString("category", true) });
+            return i.editReply("✅ Item initialized in market.");
+        }
+
+        if (i.commandName === "list-tribes") {
+            if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff clearance required.");
+            const regs = await db.select().from(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.guildId, i.guildId!)).orderBy(tribeRegistrationsTable.tribeName);
+            if (regs.length === 0) return i.editReply("Empty database.");
+            const e = new EmbedBuilder().setTitle("🌐 DB").setColor(OVERSEER_COLOR);
+            regs.slice(0, 25).forEach(r => e.addFields({ name: "[" + r.tribeName + "] " + r.ign, value: "Xbox: " + r.xboxGamertag, inline: false }));
+            return i.editReply({ embeds: [e] });
+        }
+
+        // ... (Other commands use editReply now due to deferral)
+        if (i.commandName === "bal") {
+            const [u] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
+            return i.editReply({ content: "💰 **Bank:** " + (u?.tekCoins || 0) + " Tek Coins." });
+        }
+        if (i.commandName === "shop") {
+            const its = await db.select().from(shopItemsTable).where(eq(shopItemsTable.guildId, i.guildId!));
+            const e = new EmbedBuilder().setTitle("🛒 MARKET").setColor(OVERSEER_COLOR).setDescription("Use `/buy` to purchase.");
+            e.addFields({ name: "Items", value: its.length > 0 ? its.map(x => `• **${x.itemName}**: ${x.price}`).join("\n") : "Empty." });
+            return i.editReply({ embeds: [e] });
+        }
+        if (i.commandName === "buy") {
+            const name = i.options.getString("item", true);
+            const [u] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
+            const [it] = await db.select().from(shopItemsTable).where(and(eq(shopItemsTable.itemName, name), eq(shopItemsTable.guildId, i.guildId!))).limit(1);
+            if (!it || !u || u.tekCoins < it.price) return i.editReply("❌ Transaction Failed: Insufficient assets.");
+            await db.update(tribeRegistrationsTable).set({ tekCoins: u.tekCoins - it.price }).where(eq(tribeRegistrationsTable.id, u.id));
+            await postToStaffLog(i.guildId!, new EmbedBuilder().setTitle("💰 PURCHASE").setDescription("<@" + i.user.id + "> bought **" + name + "**.").setColor(Colors.Green));
+            return i.editReply("✅ Protocol Success. Staff notified.");
+        }
+        if (i.commandName === "my-tribe") {
+            const [r] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
+            if (!r) return i.editReply("No record found.");
+            return i.editReply({ embeds: [new EmbedBuilder().setTitle(`👤 ${r.ign}`).addFields({ name: "Tribe", value: r.tribeName }, { name: "Xbox", value: r.xboxGamertag }).setColor(OVERSEER_COLOR)] });
+        }
+        if (i.commandName === "help") {
+            return i.editReply({ embeds: [new EmbedBuilder().setTitle("🔵 OVERSEER | v1.5").setColor(OVERSEER_COLOR).addFields({ name: "Protocols", value: "`/register`, `/join`, `/bal`, `/shop`, `/buy`, `/lft`" })] });
+        }
+        // These don't need deferral as they don't touch DB
+        if (["post-info", "post-support", "post-alpha-terminal", "post-recruitment"].includes(i.commandName)) {
+            const e = new EmbedBuilder().setColor(OVERSEER_COLOR);
+            let row = new ActionRowBuilder<ButtonBuilder>();
+            if (i.commandName === "post-info") { e.setTitle("🛡️ REG").setDescription("Initialize below."); row.addComponents(new ButtonBuilder().setCustomId("btn_start_register").setLabel("Create Tribe").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("btn_start_join").setLabel("Join Tribe").setStyle(ButtonStyle.Primary)); }
+            else if (i.commandName === "post-support") { e.setTitle("🆘 SUPPORT").setDescription("SOS link."); row.addComponents(new ButtonBuilder().setCustomId("btn_open_ticket").setLabel("Contact").setStyle(ButtonStyle.Danger)); }
+            else if (i.commandName === "post-alpha-terminal") { e.setTitle("👑 ALPHA").setDescription("Claim dominance."); row.addComponents(new ButtonBuilder().setCustomId("btn_alpha_claim").setLabel("Claim").setStyle(ButtonStyle.Secondary)); }
+            else { e.setTitle("📡 RECRUIT").setDescription("LFT link."); row.addComponents(new ButtonBuilder().setCustomId("btn_lft_start").setLabel("Post Profile").setStyle(ButtonStyle.Primary)); }
+            await (i.channel as any).send({ embeds: [e], components: [row] });
+            return i.reply({ content: "Terminal Deployed.", ephemeral: true });
         }
     }
-    if (i.customId === "modal_task") {
-        const [reg] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
-        if (reg) {
-            await db.insert(tribeTasksTable).values({ guildId: i.guildId!, tribeName: reg.tribeName, taskContent: i.fields.getTextInputValue("content") });
-            await (i.channel as any).send({ embeds: [new EmbedBuilder().setTitle("📋 NEW TASK").setDescription(i.fields.getTextInputValue("content")).setColor(Colors.Blue).setFooter({ text: `By ${reg.ign}` })] });
-            await i.reply({ content: "Task added!", ephemeral: true });
+
+    if (i.isModalSubmit()) {
+        if (i.customId === "modal_reg" || i.customId === "modal_join") {
+            const tN = i.fields.getTextInputValue("tribe").trim();
+            const xb = i.fields.getTextInputValue("xbox").trim();
+            const ign = i.fields.getTextInputValue("ign").trim();
+            await i.deferReply({ ephemeral: true });
+            try {
+                await db.insert(tribeRegistrationsTable).values({ guildId: i.guildId!, tribeName: tN, ign, xboxGamertag: xb, discordUserId: i.user.id, discordUsername: i.user.username, status: "pending", isOwner: (i.customId === 'modal_reg') });
+                const e = new EmbedBuilder().setTitle("🛡️ PENDING").setDescription("<@" + i.user.id + "> -> **" + tN + "**.").setColor(Colors.Orange);
+                const r = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("gate_accept:" + i.user.id).setLabel("Approve").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("gate_deny:" + i.user.id).setLabel("Deny").setStyle(ButtonStyle.Danger));
+                await postToStaffLog(i.guildId!, e, [r]);
+                await i.editReply("✅ Pending staff verification.");
+            } catch (e) { await i.editReply("❌ Already registered."); }
+        }
+        if (i.customId === "modal_alpha") {
+            await db.insert(alphaClaimsTable).values({ guildId: i.guildId!, tribeName: i.fields.getTextInputValue("tribe"), discordUserId: i.user.id, coordinates: i.fields.getTextInputValue("coords"), memberCount: parseInt(i.fields.getTextInputValue("members")) || 0 });
+            await postToStaffLog(i.guildId!, new EmbedBuilder().setTitle("👑 ALPHA CLAIM").setDescription("<@" + i.user.id + "> claimed Alpha.").setColor(OVERSEER_COLOR));
+            await i.reply({ content: "✅ Protocol Synced.", ephemeral: true });
+        }
+        if (i.customId === "modal_lft") {
+            const [cfg] = await db.select().from(guildConfigTable).where(eq(guildConfigTable.guildId, i.guildId!)).limit(1);
+            if (cfg?.recruitmentChannelId) {
+                const c: any = await client.channels.fetch(cfg.recruitmentChannelId);
+                await db.insert(recruitmentTable).values({ guildId: i.guildId!, discordUserId: i.user.id, playstyle: i.fields.getTextInputValue("style"), hours: i.fields.getTextInputValue("hours"), description: i.fields.getTextInputValue("desc") });
+                await c.send({ embeds: [new EmbedBuilder().setTitle("🔎 SURVIVOR LFT").addFields({ name: "Survivor", value: "<@" + i.user.id + ">" }, { name: "Hours", value: i.fields.getTextInputValue("hours") }).setColor(OVERSEER_COLOR)] });
+                await i.reply({ content: "✅ Profile broadcasted.", ephemeral: true });
+            }
+        }
+        if (i.customId === "modal_task") {
+            const [reg] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
+            if (reg) {
+                await db.insert(tribeTasksTable).values({ guildId: i.guildId!, tribeName: reg.tribeName, taskContent: i.fields.getTextInputValue("content") });
+                await (i.channel as any).send({ embeds: [new EmbedBuilder().setTitle("📋 NEW TASK").setDescription(i.fields.getTextInputValue("content")).setColor(Colors.Blue).setFooter({ text: "By " + reg.ign })] });
+                await i.reply({ content: "Directive initialized.", ephemeral: true });
+            }
         }
     }
+  } catch (err) {
+      console.error("GLOBAL INTERACTION ERROR:", err);
   }
 });
 
