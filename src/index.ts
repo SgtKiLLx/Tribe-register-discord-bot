@@ -202,70 +202,47 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
   }
 
   if (i.isChatInputCommand()) {
-    // --- 1. ECONOMY: CHECK BALANCE ---
+    // --- 1. ECONOMY: BALANCE ---
     if (i.commandName === "bal") {
         const [userData] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
         return i.reply({ content: "💰 **Overseer Bank:** You currently possess **" + (userData?.tekCoins || 0) + "** Tek Coins.", ephemeral: true });
     }
 
-    // --- 2. ECONOMY: PLACE BOUNTY ---
+    // --- 2. ECONOMY: BOUNTY ---
     if (i.commandName === "bounty") {
         const target = i.options.getString("tribe", true);
         const amount = i.options.getInteger("amount", true);
         const [userData] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
-        
-        if (!userData || userData.tekCoins < amount) return i.reply({ content: "❌ Insufficient funds in bank signature.", ephemeral: true });
-        
+        if (!userData || userData.tekCoins < amount) return i.reply({ content: "❌ Insufficient funds.", ephemeral: true });
         await db.update(tribeRegistrationsTable).set({ tekCoins: userData.tekCoins - amount }).where(eq(tribeRegistrationsTable.id, userData.id));
         await db.insert(bountiesTable).values({ guildId: i.guildId!, targetTribe: target, reward: amount, placedBy: i.user.id });
-
-        const e = new EmbedBuilder().setTitle("🚨 BOUNTY INITIALIZED").setDescription("A reward of **" + amount + " Tek Coins** has been placed on tribe **" + target + "**!").setColor(Colors.Red).setFooter({ text: "Protocol: Most Wanted" });
+        const e = new EmbedBuilder().setTitle("🚨 BOUNTY INITIALIZED").setDescription("A reward of **" + amount + " Tek Coins** has been placed on tribe **" + target + "**!").setColor(Colors.Red);
         return i.reply({ embeds: [e] });
     }
 
-    // --- 3. SYSTEM: HELP MANUAL ---
+    // --- 3. SYSTEM: HELP ---
     if (i.commandName === "help") {
-        const e = new EmbedBuilder().setTitle("🔵 OVERSEER | v1.4").setColor(OVERSEER_COLOR).addFields(
+        const e = new EmbedBuilder().setTitle("🔵 OVERSEER | Documentation").setColor(OVERSEER_COLOR).addFields(
             { name: "Survivor", value: "`/register`, `/join`, `/my-tribe`, `/lft`, `/leave-tribe`, `/bal`" },
-            { name: "Staff", value: "`/list-tribes`, `/kick-member`, `/post-info`, `/post-support`, `/setup`" }
+            { name: "Staff", value: "`/list-tribes`, `/kick-member`, `/post-info`, `/post-recruitment`, `/post-support`, `/post-alpha-terminal`, `/setup`" }
         );
         return i.reply({ embeds: [e], ephemeral: true });
     }
 
-    // --- 4. STAFF: LIST ALL TRIBES (WITH DEFER FIX) ---
+    // --- 4. STAFF: LIST TRIBES ---
     if (i.commandName === "list-tribes") {
-        await i.deferReply({ ephemeral: true }); // Tell Discord to wait
+        await i.deferReply({ ephemeral: true });
         if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff clearance required.");
-
         const regs = await db.select().from(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.guildId, i.guildId!)).orderBy(tribeRegistrationsTable.tribeName);
-        if (regs.length === 0) return i.editReply("No signatures found for this sector.");
-
+        if (regs.length === 0) return i.editReply("No signatures found.");
         const e = new EmbedBuilder().setTitle("🌐 SERVER DATABASE").setColor(OVERSEER_COLOR);
-        regs.slice(0, 25).forEach(r => {
-            const status = r.status === 'verified' ? "✅" : "⏳";
-            e.addFields({ name: `${status} [${r.tribeName}] ${r.ign}`, value: `Xbox: ${r.xboxGamertag} | <@${r.discordUserId}>`, inline: false });
-        });
+        regs.slice(0, 25).forEach(r => e.addFields({ name: `[${r.tribeName}] ${r.ign}`, value: `Xbox: ${r.xboxGamertag} | <@${r.discordUserId}>`, inline: false }));
         return i.editReply({ embeds: [e] });
     }
 
-    // --- 5. STAFF: KICK MEMBER ---
-    if (i.commandName === "kick-member") {
-        if (!(await isOverseerStaff(i))) return i.reply({ content: "❌ Staff clearance required.", ephemeral: true });
-        const target = i.options.getUser("target", true);
-        const [r] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, target.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
-        if (!r) return i.reply({ content: "Survivor not found.", ephemeral: true });
-        
-        await db.delete(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, target.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
-        if (r.channelId) {
-            const chan: any = await i.guild?.channels.fetch(r.channelId).catch(() => null);
-            if (chan?.permissionOverwrites) await chan.permissionOverwrites.delete(target.id);
-        }
-        return i.reply({ content: `✅ Successfully purged <@${target.id}> from the database.` });
-    }
-
-    // --- 6. DEPLOY: REGISTRATION INTERFACE ---
+    // --- 5. DEPLOY: TRIBE REGISTRATION ---
     if (i.commandName === "post-info") {
-        const e = new EmbedBuilder().setTitle("🛡️ OVERSEER | INITIALIZATION").setThumbnail(client.user?.displayAvatarURL() || null).setColor(OVERSEER_COLOR).setDescription("Welcome Survivor. Initialize signature below.");
+        const e = new EmbedBuilder().setTitle("🛡️ OVERSEER | INITIALIZATION").setThumbnail(client.user?.displayAvatarURL() || null).setColor(OVERSEER_COLOR).setDescription("Initialize survivor protocols below.");
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
             new ButtonBuilder().setCustomId("btn_start_register").setLabel("Create Tribe").setStyle(ButtonStyle.Success).setEmoji("📝"),
             new ButtonBuilder().setCustomId("btn_start_join").setLabel("Join Tribe").setStyle(ButtonStyle.Primary).setEmoji("🤝")
@@ -274,31 +251,59 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
         return i.reply({ content: "Interface Deployed.", ephemeral: true });
     }
 
+    // --- 6. DEPLOY: RECRUITMENT TERMINAL (NEW) ---
+    if (i.commandName === "post-recruitment") {
+        const e = new EmbedBuilder()
+            .setTitle("📡 OVERSEER | RECRUITMENT TERMINAL")
+            .setColor(OVERSEER_COLOR)
+            .setDescription("Looking for a tribe or looking to recruit? Use this terminal to broadcast your profile to the server.")
+            .addFields(
+                { name: "🙋‍♂️ FOR SURVIVORS", value: "Click below to post your playstyle and skills to this channel.", inline: true },
+                { name: "🏰 FOR LEADERS", value: "Browse profiles and DM survivors to recruit.", inline: true }
+            );
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder().setCustomId("btn_lft_start").setLabel("Post LFT Profile").setStyle(ButtonStyle.Secondary).setEmoji("📝")
+        );
+        await (i.channel as any).send({ embeds: [e], components: [row] });
+        return i.reply({ content: "Recruitment Terminal Deployed.", ephemeral: true });
+    }
+
     // --- 7. DEPLOY: SUPPORT TERMINAL ---
     if (i.commandName === "post-support") {
         const e = new EmbedBuilder().setTitle("🆘 OVERSEER | SUPPORT").setColor(OVERSEER_COLOR).setDescription("Click below to open a private SOS thread with staff.");
-        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder().setCustomId("btn_open_ticket").setLabel("Contact Support").setStyle(ButtonStyle.Danger).setEmoji("🆘")
-        );
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("btn_open_ticket").setLabel("Contact Support").setStyle(ButtonStyle.Danger).setEmoji("🆘"));
         await (i.channel as any).send({ embeds: [e], components: [row] });
         return i.reply({ content: "Support Terminal Deployed.", ephemeral: true });
     }
 
-    // --- 8. SURVIVOR: MY PROFILE ---
-    if (i.commandName === "my-tribe") {
-        const [reg] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
-        if (!reg) return i.reply({ content: "No record found.", ephemeral: true });
-        const e = new EmbedBuilder().setTitle(`👤 ${reg.ign}`).addFields({ name: "Tribe", value: reg.tribeName, inline: true }, { name: "Xbox", value: reg.xboxGamertag, inline: true }).setColor(OVERSEER_COLOR);
-        return i.reply({ embeds: [e], ephemeral: true });
+    // --- 8. DEPLOY: ALPHA CLAIM TERMINAL ---
+    if (i.commandName === "post-alpha-terminal") {
+        const e = new EmbedBuilder().setTitle("👑 OVERSEER | ALPHA CLAIM").setColor(0xFFD700).setDescription("Submit tribe dominance claim for verification.");
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId("btn_alpha_claim").setLabel("Claim Alpha Status").setStyle(ButtonStyle.Secondary).setEmoji("👑"));
+        await (i.channel as any).send({ embeds: [e], components: [row] });
+        return i.reply({ content: "Alpha Terminal Deployed.", ephemeral: true });
     }
 
-    // --- 9. ADMIN: MASTER SETUP ---
+    // --- 9. ADMIN: SETUP ---
     if (i.commandName === "setup") {
         const o = i.options;
         await db.insert(guildConfigTable).values({ 
             guildId: i.guildId!, adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id 
         }).onConflictDoUpdate({ target: guildConfigTable.guildId, set: { adminRoleIds: o.getRole("role")!.id, staffLogChannelId: o.getChannel("logs")!.id, welcomeChannelId: o.getChannel("welcome")!.id, rulesChannelId: o.getChannel("rules")!.id, infoChannelId: o.getChannel("info")!.id, recruitmentChannelId: o.getChannel("recruitment")!.id, supportChannelId: o.getChannel("support")!.id, tribeCategoryId: o.getChannel("category")!.id } });
         return i.reply("✅ Overseer Protocol Configured.");
+    }
+    
+    // --- 10. SURVIVOR: PROFILE & KICK ---
+    if (i.commandName === "my-tribe") {
+        const [reg] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
+        if (!reg) return i.reply({ content: "No signature found.", ephemeral: true });
+        return i.reply({ embeds: [new EmbedBuilder().setTitle(`👤 ${reg.ign}`).addFields({ name: "Tribe", value: reg.tribeName }, { name: "Xbox", value: reg.xboxGamertag }).setColor(OVERSEER_COLOR)], ephemeral: true });
+    }
+    if (i.commandName === "kick-member") {
+        if (!(await isOverseerStaff(i))) return i.reply({ content: "❌ Staff only.", ephemeral: true });
+        const target = i.options.getUser("target", true);
+        await db.delete(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, target.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
+        return i.reply({ content: `✅ Purged <@${target.id}> from records.` });
     }
   }
 
