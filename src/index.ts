@@ -196,7 +196,99 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("tribe").setLabel(join ? "Exact Tribe Name" : "New Tribe Name").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("ign").setLabel("Your IGN").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("xbox").setLabel("Xbox Gamertag").setStyle(TextInputStyle.Short).setRequired(true)));
             return i.showModal(m);
         }
+        // --- TEK-MARKET: ADD ITEM (STAFF) ---
+    if (i.commandName === "add-item") {
+        if (!(await isOverseerStaff(i))) return i.editReply({ content: "❌ Staff clearance required." });
+        
+        const name = i.options.getString("name", true);
+        const price = i.options.getInteger("price", true);
+        const cat = i.options.getString("category", true);
 
+        await db.insert(shopItemsTable).values({ 
+            guildId: i.guildId!, 
+            itemName: name, 
+            price: price, 
+            category: cat 
+        });
+        return i.editReply({ content: `✅ Added **${name}** to the Tek-Market for **${price}** Tek Coins.` });
+    }
+
+    // --- TEK-MARKET: REMOVE ITEM (STAFF) ---
+    if (i.commandName === "remove-item") {
+        if (!(await isOverseerStaff(i))) return i.editReply({ content: "❌ Staff clearance required." });
+        
+        const itemName = i.options.getString("item", true);
+        await db.delete(shopItemsTable).where(and(
+            eq(shopItemsTable.itemName, itemName), 
+            eq(shopItemsTable.guildId, i.guildId!)
+        ));
+        return i.editReply({ content: `✅ Successfully purged **${itemName}** from the market database.` });
+    }
+
+    // --- TEK-MARKET: BROWSE SHOP (SURVIVOR) ---
+    if (i.commandName === "shop") {
+        const items = await db.select().from(shopItemsTable).where(eq(shopItemsTable.guildId, i.guildId!));
+        
+        if (items.length === 0) {
+            return i.editReply({ content: "The Tek-Market is currently empty. Staff must populate it using `/add-item`." });
+        }
+
+        const embed = new EmbedBuilder()
+            .setTitle("🛒 OVERSEER | TEK-MARKET")
+            .setColor(OVERSEER_COLOR)
+            .setDescription("Use `/buy [item]` to acquire assets. Staff will be alerted for delivery.")
+            .setThumbnail(client.user?.displayAvatarURL() || null);
+
+        const dinos = items.filter(it => it.category === 'dino');
+        const tools = items.filter(it => it.category === 'item');
+
+        if (dinos.length > 0) embed.addFields({ name: "🦖 CREATURES", value: dinos.map(d => `• **${d.itemName}**: ${d.price} Coins`).join("\n") });
+        if (tools.length > 0) embed.addFields({ name: "📦 KITS & ITEMS", value: tools.map(t => `• **${t.itemName}**: ${t.price} Coins`).join("\n") });
+
+        return i.editReply({ embeds: [embed] });
+    }
+
+    // --- TEK-MARKET: PURCHASE (SURVIVOR) ---
+    if (i.commandName === "buy") {
+        const itemName = i.options.getString("item", true);
+        
+        // Fetch User and Item data
+        const [user] = await db.select().from(tribeRegistrationsTable).where(and(
+            eq(tribeRegistrationsTable.discordUserId, i.user.id), 
+            eq(tribeRegistrationsTable.guildId, i.guildId!)
+        ));
+        const [item] = await db.select().from(shopItemsTable).where(and(
+            eq(shopItemsTable.itemName, itemName), 
+            eq(shopItemsTable.guildId, i.guildId!)
+        )).limit(1);
+
+        // Safety Checks
+        if (!item) return i.editReply({ content: "❌ This item signature no longer exists in the market." });
+        if (!user || user.tekCoins < item.price) {
+            return i.editReply({ content: `❌ Insufficient Tek Coins. Required: **${item.price}**, Current: **${user?.tekCoins || 0}**.` });
+        }
+        
+        // Deduct Coins
+        await db.update(tribeRegistrationsTable)
+            .set({ tekCoins: user.tekCoins - item.price })
+            .where(eq(tribeRegistrationsTable.id, user.id));
+        
+        // Notify Staff
+        const logEmbed = new EmbedBuilder()
+            .setTitle("💰 MARKET PURCHASE")
+            .setColor(Colors.Green)
+            .setDescription(`<@${i.user.id}> purchased **${itemName}**!`)
+            .addFields(
+                { name: "Tribe", value: user.tribeName, inline: true }, 
+                { name: "IGN", value: user.ign, inline: true },
+                { name: "Cost", value: `${item.price} Coins`, inline: true }
+            )
+            .setTimestamp();
+        
+        await postToStaffLog(i.guildId!, logEmbed);
+
+        return i.editReply({ content: `✅ Purchase successful! You bought **${itemName}** for ${item.price} coins. Staff has been notified for in-game delivery.` });
+    }
         if (i.commandName === "post-info" || i.commandName === "post-support" || i.commandName === "post-alpha-terminal" || i.commandName === "post-recruitment") {
             const e = new EmbedBuilder().setColor(OVERSEER_COLOR);
             const row = new ActionRowBuilder<ButtonBuilder>();
