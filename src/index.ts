@@ -208,12 +208,33 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
 
         // SOS Tickets
         if (i.customId === "btn_open_ticket") {
-            await i.deferReply({ ephemeral: true });
-            const t = await (i.channel as any).threads.create({ name: `ticket-${i.user.username}`, type: ChannelType.PrivateThread, autoArchiveDuration: ThreadAutoArchiveDuration.OneDay });
-            await t.members.add(i.user.id);
-            await t.send("**SOS Protocol Active.** <@"+i.user.id+">, staff alerted.");
-            return i.editReply(`✅ SOS Opened: <#${t.id}>`);
-        }
+        await i.deferReply({ ephemeral: true });
+        const chan: any = i.channel;
+        
+        const thread = await chan.threads.create({ 
+            name: `ticket-${i.user.username}`, 
+            type: ChannelType.PrivateThread, 
+            autoArchiveDuration: ThreadAutoArchiveDuration.OneDay 
+        });
+
+        await thread.members.add(i.user.id);
+
+        // Create the Close Button
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+                .setCustomId("btn_close_ticket")
+                .setLabel("Close Ticket")
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji("🔒")
+        );
+
+        await thread.send({ 
+            content: `**Transmission Received.** <@${i.user.id}>, please describe the issue. Staff has been notified.`,
+            components: [row] 
+        });
+
+        return i.editReply(`✅ SOS Protocol Initialized: <#${thread.id}>`);
+    }
 
         // Modal Triggers
         if (["btn_start_register", "btn_start_join", "btn_lft_start", "btn_alpha_claim", "btn_shop_view", "btn_bal_check"].includes(i.customId)) {
