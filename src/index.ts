@@ -227,13 +227,35 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
                 .setStyle(ButtonStyle.Danger)
                 .setEmoji("🔒")
         );
-
+        
         await thread.send({ 
             content: `**Transmission Received.** <@${i.user.id}>, please describe the issue. Staff has been notified.`,
             components: [row] 
         });
 
         return i.editReply(`✅ SOS Protocol Initialized: <#${thread.id}>`);
+    }
+      // --- SOS: CLOSE TICKET PROTOCOL ---
+      if (i.customId === "btn_close_ticket") {
+        const thread = i.channel;
+        if (!thread || !thread.isThread()) return;
+
+        await i.reply({ content: "🔒 **Closing Protocol Initialized.** This thread is being archived." });
+        
+        // Lock and Archive the thread
+        try {
+            await thread.setLocked(true);
+            await thread.setArchived(true);
+            
+            // Log the closure to staff logs
+            await postToStaffLog(i.guildId!, new EmbedBuilder()
+                .setTitle("🆘 TICKET CLOSED")
+                .setDescription(`Ticket <#${thread.id}> was closed by <@${i.user.id}>.`)
+                .setColor(Colors.Red)
+            );
+        } catch (e) {
+            console.error("Failed to close thread:", e);
+        }
     }
 
         // Modal Triggers
