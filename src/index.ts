@@ -264,8 +264,30 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
     if (i.isChatInputCommand()) {
         const dbCmds = ["bal", "shop", "buy", "list-tribes", "setup", "kick-member", "bounty", "my-tribe", "add-item", "remove-item", "leave-tribe", "add-coins", "pay"];
         if (dbCmds.includes(i.commandName)) await i.deferReply({ ephemeral: true });
+// --- STAFF: ADD SHOP ITEM ---
+      if (i.commandName === "add-item") {
+        // Security check
+        if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff clearance required.");
+        
+        const name = i.options.getString("name", true);
+        const price = i.options.getInteger("price", true);
+        const cat = i.options.getString("category", true);
 
-        if (i.commandName === "bal") {
+        try {
+            await db.insert(shopItemsTable).values({ 
+                guildId: i.guildId!, 
+                itemName: name, 
+                price: price, 
+                category: cat 
+            });
+            
+            return i.editReply({ content: `✅ **Protocol Success.** Stored **${name}** in the Tek-Market for **${price}** coins.` });
+        } catch (e) {
+            return i.editReply({ content: "❌ **Database Error.** Could not register item signature." });
+        }
+    }
+        
+      if (i.commandName === "bal") {
             const [u] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
             return i.editReply("💰 **Balance:** " + (u?.tekCoins || 0) + " Tek Coins.");
         }
