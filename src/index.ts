@@ -132,7 +132,7 @@ client.once(Events.ClientReady, async (c) => {
 client.on(Events.MessageCreate, async (msg) => {
     if (msg.author.bot || !msg.guildId || coinCooldown.has(msg.author.id)) return;
     try {
-        await db.update(tribeRegistrationsTable).set({ tekCoins: sql`${tribeRegistrationsTable.tekCoins} + 1` }).where(and(eq(tribeRegistrationsTable.discordUserId, msg.author.id), eq(tribeRegistrationsTable.guildId, msg.guildId)));
+        await db.update(tribeRegistrationsTable).set({ tekCoins: sql`${tribeRegistrationsTable.tekCoins} + 5` }).where(and(eq(tribeRegistrationsTable.discordUserId, msg.author.id), eq(tribeRegistrationsTable.guildId, msg.guildId)));
         coinCooldown.add(msg.author.id);
         setTimeout(() => coinCooldown.delete(msg.author.id), 120000);
     } catch (e) {}
