@@ -10,8 +10,8 @@ import http from "http";
 
 const token = process.env.DISCORD_BOT_TOKEN;
 const applicationId = process.env.DISCORD_APPLICATION_ID;
-const OVERSEER_COLOR = 0x00ffff;
-const OVERSEER_EMOJI_ID = "1501961516604330035";
+const ArkSentinel_COLOR = 0x00ffff;
+const ArkSentinel_EMOJI_ID = "1501961516604330035";
 
 // --- Memory & Asset Data ---
 const coinCooldown = new Set();
@@ -26,7 +26,7 @@ if (!token || !applicationId) process.exit(1);
 
 // --- 🧠 Master Helpers ---
 
-async function refreshOverseerStatus(client: Client) {
+async function refreshArkSentinelStatus(client: Client) {
     try {
         const tribes = await db.select({ name: tribeRegistrationsTable.tribeName })
             .from(tribeRegistrationsTable)
@@ -42,7 +42,7 @@ async function refreshOverseerStatus(client: Client) {
                 type: ActivityType.Custom,
                 state: `Watching ${statusText}`,
                 emoji: {
-                    id: OVERSEER_EMOJI_ID 
+                    id: ArkSentinel_EMOJI_ID 
                 }
             }]
         });
@@ -51,7 +51,7 @@ async function refreshOverseerStatus(client: Client) {
     } catch (e) { console.error("Status fail"); }
 }
 
-async function isOverseerStaff(interaction: Interaction): Promise<boolean> {
+async function isArkSentinelStaff(interaction: Interaction): Promise<boolean> {
     if (!interaction.guildId || !interaction.member) return false;
     const member = interaction.member as GuildMember;
     if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
@@ -71,7 +71,7 @@ async function postToStaffLog(guildId: string, embed: EmbedBuilder, components: 
 }
 
 function getTribeDashboard(tribeName: string) {
-  const embed = new EmbedBuilder().setTitle(`💠 OVERSEER | HQ: ${tribeName}`).setDescription("Tribe HQ Active. Use protocols for coordination.").setColor(OVERSEER_COLOR);
+  const embed = new EmbedBuilder().setTitle(`💠 ArkSentinel | HQ: ${tribeName}`).setDescription("Tribe HQ Active. Use protocols for coordination.").setColor(ArkSentinel_COLOR);
   const r1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId("raid_alert").setLabel("RAID ALERT").setStyle(ButtonStyle.Danger).setEmoji("🚨"),
     new ButtonBuilder().setCustomId("claim_kit").setLabel("Claim Kit").setStyle(ButtonStyle.Success).setEmoji("🎁")
@@ -86,7 +86,7 @@ function getTribeDashboard(tribeName: string) {
 // --- 🛠️ Command Definitions (21 Protocols) ---
 
 const commands = [
-  new SlashCommandBuilder().setName("help").setDescription("View the full Overseer manual"),
+  new SlashCommandBuilder().setName("help").setDescription("View the full ArkSentinel manual"),
   new SlashCommandBuilder().setName("register").setDescription("Initialize a new tribe signature"),
   new SlashCommandBuilder().setName("lft").setDescription("Post a recruitment profile"),
   new SlashCommandBuilder().setName("my-tribe").setDescription("View your survivor profile"),
@@ -106,7 +106,7 @@ const commands = [
   new SlashCommandBuilder().setName("post-alpha-terminal").setDescription("Deploy Alpha Terminal"),
   new SlashCommandBuilder().setName("post-recruitment").setDescription("Deploy LFT Terminal"),
   new SlashCommandBuilder().setName("post-shop").setDescription("Deploy Market Terminal"),
-  new SlashCommandBuilder().setName("setup").setDescription("Configure Overseer protocols")
+  new SlashCommandBuilder().setName("setup").setDescription("Configure ArkSentinel protocols")
     .addRoleOption(o => o.setName("role").setDescription("Staff Role").setRequired(true))
     .addChannelOption(o => o.setName("logs").setDescription("Staff Logs").setRequired(true))
     .addChannelOption(o => o.setName("welcome").setDescription("Welcome").setRequired(true))
@@ -124,8 +124,8 @@ const commands = [
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages] });
 
 client.once(Events.ClientReady, async (c) => {
-  console.log(`Overseer System Synchronized: ${c.user.tag}`);
-  await refreshOverseerStatus(c);
+  console.log(`ArkSentinel System Synchronized: ${c.user.tag}`);
+  await refreshArkSentinelStatus(c);
 });
 
 // Passive Income Logic
@@ -146,12 +146,12 @@ client.on(Events.GuildMemberAdd, async (member) => {
         if (config.welcomeChannelId) {
             const welcomeChan: any = await member.guild.channels.fetch(config.welcomeChannelId).catch(() => null);
             if (welcomeChan) {
-                const embed = new EmbedBuilder().setTitle("🔵 NEW SURVIVOR DETECTED").setThumbnail(member.user.displayAvatarURL()).setColor(OVERSEER_COLOR).setDescription(`Welcome Survivor <@${member.id}>. Protocols initialized.`)
+                const embed = new EmbedBuilder().setTitle("🔵 NEW SURVIVOR DETECTED").setThumbnail(member.user.displayAvatarURL()).setColor(ArkSentinel_COLOR).setDescription(`Welcome Survivor <@${member.id}>. Protocols initialized.`)
                     .addFields({ name: "📜 DIRECTIVES", value: `<#${config.rulesChannelId || '0'}> | <#${config.infoChannelId || '0'}>` });
                 await welcomeChan.send({ content: `Welcome Survivor, <@${member.id}>`, embeds: [embed] });
             }
         }
-        const dm = new EmbedBuilder().setTitle("💠 OVERSEER | DIRECTIVES").setColor(OVERSEER_COLOR).setDescription("Use `/help` for system documentation.");
+        const dm = new EmbedBuilder().setTitle("💠 ArkSentinel | DIRECTIVES").setColor(ArkSentinel_COLOR).setDescription("Use `/help` for system documentation.");
         await member.send({ embeds: [dm] }).catch(() => null);
     } catch (e) {}
 });
@@ -185,7 +185,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
         
         // Gatekeeper Approvals
         if (i.customId.startsWith("gate_accept:") || i.customId.startsWith("gate_deny:")) {
-            if (!(await isOverseerStaff(i))) return i.reply({ content: "❌ Staff clearance required.", ephemeral: true });
+            if (!(await isArkSentinelStaff(i))) return i.reply({ content: "❌ Staff clearance required.", ephemeral: true });
             const [action, tId] = i.customId.split(":");
             await i.deferReply({ ephemeral: true });
             if (action === "gate_accept") {
@@ -198,7 +198,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
                 const mem = await i.guild?.members.fetch(tId).catch(() => null);
                 if (mem?.manageable) await mem.setNickname(`[${p.tribeName}] ${p.ign}`);
                 await i.editReply("✅ Survivor Authorized.");
-                await refreshOverseerStatus(client);
+                await refreshArkSentinelStatus(client);
             } else {
                 await db.delete(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, tId), eq(tribeRegistrationsTable.guildId, i.guildId!)));
                 await i.editReply("❌ Signature Purged.");
@@ -263,7 +263,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             if (i.customId === "btn_shop_view") {
                 await i.deferReply({ ephemeral: true });
                 const its = await db.select().from(shopItemsTable).where(eq(shopItemsTable.guildId, i.guildId!));
-                const e = new EmbedBuilder().setTitle("🛒 INVENTORY").setDescription(its.map(x => `• **${x.itemName}**: ${x.price}`).join("\n") || "Empty").setColor(OVERSEER_COLOR);
+                const e = new EmbedBuilder().setTitle("🛒 INVENTORY").setDescription(its.map(x => `• **${x.itemName}**: ${x.price}`).join("\n") || "Empty").setColor(ArkSentinel_COLOR);
                 return i.editReply({ embeds: [e] });
             }
             if (i.customId === "btn_bal_check") {
@@ -271,7 +271,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
                 return i.editReply("💰 Balance: " + (reg?.tekCoins || 0) + " Tek Coins.");
             }
             const modalId = i.customId === "btn_start_register" ? "modal_reg" : i.customId === "btn_start_join" ? "modal_join" : i.customId === "btn_alpha_claim" ? "modal_alpha" : "modal_lft";
-            const m = new ModalBuilder().setCustomId(modalId).setTitle("Overseer Terminal");
+            const m = new ModalBuilder().setCustomId(modalId).setTitle("ArkSentinel Terminal");
             if (modalId === "modal_lft") {
                 m.addComponents(new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("style").setLabel("Playstyle").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("hours").setLabel("Hours").setStyle(TextInputStyle.Short).setRequired(true)), new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(new TextInputBuilder().setCustomId("desc").setLabel("Skills").setStyle(TextInputStyle.Paragraph).setRequired(true)));
             } else if (modalId === "modal_alpha") {
@@ -310,7 +310,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
 // --- STAFF: ADD SHOP ITEM ---
       if (i.commandName === "add-item") {
         // Security check
-        if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff clearance required.");
+        if (!(await isArkSentinelStaff(i))) return i.editReply("❌ Staff clearance required.");
         
         const name = i.options.getString("name", true);
         const price = i.options.getInteger("price", true);
@@ -336,7 +336,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
         }
         if (i.commandName === "shop") {
             const its = await db.select().from(shopItemsTable).where(eq(shopItemsTable.guildId, i.guildId!));
-            const e = new EmbedBuilder().setTitle("🛒 MARKET").setColor(OVERSEER_COLOR).addFields({ name: "Items", value: its.map(x => `• **${x.itemName}**: ${x.price}`).join("\n") || "Empty" });
+            const e = new EmbedBuilder().setTitle("🛒 MARKET").setColor(ArkSentinel_COLOR).addFields({ name: "Items", value: its.map(x => `• **${x.itemName}**: ${x.price}`).join("\n") || "Empty" });
             return i.editReply({ embeds: [e] });
         }
         if (i.commandName === "buy") {
@@ -349,7 +349,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             return i.editReply("✅ Purchase successful. Staff notified.");
         }
         if (i.commandName === "add-coins") {
-            if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff only.");
+            if (!(await isArkSentinelStaff(i))) return i.editReply("❌ Staff only.");
             const t = i.options.getUser("target", true);
             const a = i.options.getInteger("amount", true);
             await db.update(tribeRegistrationsTable).set({ tekCoins: sql`${tribeRegistrationsTable.tekCoins} + ${a}` }).where(and(eq(tribeRegistrationsTable.discordUserId, t.id), eq(tribeRegistrationsTable.guildId, i.guildId!)));
@@ -369,7 +369,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
         if (i.commandName === "my-tribe") {
             const [reg] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
             if (!reg) return i.editReply("❌ No signature found.");
-            const e = new EmbedBuilder().setTitle(`👤 ${reg.ign}`).addFields({ name: "Tribe", value: reg.tribeName }, { name: "Xbox", value: reg.xboxGamertag }, { name: "Balance", value: reg.tekCoins + " Coins" }).setColor(OVERSEER_COLOR);
+            const e = new EmbedBuilder().setTitle(`👤 ${reg.ign}`).addFields({ name: "Tribe", value: reg.tribeName }, { name: "Xbox", value: reg.xboxGamertag }, { name: "Balance", value: reg.tekCoins + " Coins" }).setColor(ArkSentinel_COLOR);
             return i.editReply({ embeds: [e] });
         }
         if (i.commandName === "leave-tribe") {
@@ -380,18 +380,18 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
                 const chan: any = await i.guild?.channels.fetch(reg.channelId).catch(() => null);
                 if (chan) await chan.permissionOverwrites.delete(i.user.id);
             }
-            await refreshOverseerStatus(client);
+            await refreshArkSentinelStatus(client);
             return i.editReply("✅ Success. Signature removed.");
         }
         if (i.commandName === "list-tribes") {
-            if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff only.");
+            if (!(await isArkSentinelStaff(i))) return i.editReply("❌ Staff only.");
             const regs = await db.select().from(tribeRegistrationsTable).where(eq(tribeRegistrationsTable.guildId, i.guildId!)).orderBy(tribeRegistrationsTable.tribeName);
-            const e = new EmbedBuilder().setTitle("🌐 DB").setColor(OVERSEER_COLOR);
+            const e = new EmbedBuilder().setTitle("🌐 DB").setColor(ArkSentinel_COLOR);
             regs.slice(0, 25).forEach(r => e.addFields({ name: "[" + r.tribeName + "] " + r.ign, value: `Status: ${r.status}`, inline: false }));
             return i.editReply({ embeds: [e] });
         }
         if (i.commandName === "kick-member") {
-            if (!(await isOverseerStaff(i))) return i.editReply("❌ Staff only.");
+            if (!(await isArkSentinelStaff(i))) return i.editReply("❌ Staff only.");
             const t = i.options.getUser("target", true);
             const [r] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, t.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
             if (!r) return i.editReply("Not found.");
@@ -404,9 +404,9 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             return i.editReply("✅ Configured.");
         }
         if (["help", "post-info", "post-support", "post-alpha-terminal", "post-recruitment", "post-shop"].includes(i.commandName)) {
-            const e = new EmbedBuilder().setColor(OVERSEER_COLOR);
+            const e = new EmbedBuilder().setColor(ArkSentinel_COLOR);
             let row = new ActionRowBuilder<ButtonBuilder>();
-            if (i.commandName === "help") return i.reply({ embeds: [new EmbedBuilder().setTitle("💠 OVERSEER").addFields({name:'Protocols', value:'/register, /join, /bal, /shop, /pay, /lft, /leave-tribe'})], ephemeral: true });
+            if (i.commandName === "help") return i.reply({ embeds: [new EmbedBuilder().setTitle("💠 ArkSentinel").addFields({name:'Protocols', value:'/register, /join, /bal, /shop, /pay, /lft, /leave-tribe'})], ephemeral: true });
             if (i.commandName === "post-info") { e.setTitle("🛡️ REGISTRATION"); row.addComponents(new ButtonBuilder().setCustomId("btn_start_register").setLabel("Create Tribe").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("btn_start_join").setLabel("Join Tribe").setStyle(ButtonStyle.Primary)); }
             else if (i.commandName === "post-support") { e.setTitle("🆘 SOS").setDescription("Click for support."); row.addComponents(new ButtonBuilder().setCustomId("btn_open_ticket").setLabel("Contact").setStyle(ButtonStyle.Danger)); }
             else if (i.commandName === "post-shop") { e.setTitle("🛒 MARKET").setDescription("View inventory."); row.addComponents(new ButtonBuilder().setCustomId("btn_shop_view").setLabel("View Inventory").setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId("btn_bal_check").setLabel("Check Bank").setStyle(ButtonStyle.Secondary)); }
