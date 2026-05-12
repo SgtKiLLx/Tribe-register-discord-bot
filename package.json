@@ -1,5 +1,5 @@
 {
-  "name": "overseer-bot",
+  "name": "ark-sentinel",
   "version": "1.0.0",
   "description": "Ark Tribe Management System",
   "main": "src/index.ts",
@@ -13,11 +13,15 @@
     "drizzle-orm": "^0.30.10",
     "postgres": "^3.4.4",
     "@neondatabase/serverless": "^0.9.3",
-    "typescript": "^5.4.5",
-    "tsx": "^4.7.1",
-    "@types/node": "^20.12.7",
     "express": "^4.18.2",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "tsx": "^4.7.1",
+    "typescript": "^5.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17"
   },
   "engines": {
     "node": ">=18.0.0"
