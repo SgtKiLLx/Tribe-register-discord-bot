@@ -452,7 +452,6 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
 });
 
 // Server & Start
-http.createServer((_, res) => { res.writeHead(200); res.end("OK"); }).listen(process.env.PORT || 3000);
 async function start() {
     try {
         const rest = new REST({ version: "10" }).setToken(token!);
