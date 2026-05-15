@@ -127,6 +127,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 client.once(Events.ClientReady, async (c) => {
   console.log(`ArkSentinel System Synchronized: ${c.user.tag}`);
   await refreshArkSentinelStatus(c);
+  startServer(c);
 });
 
 // Passive Income Logic
