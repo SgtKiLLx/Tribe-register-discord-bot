@@ -7,7 +7,7 @@ import {
 import { db, tribeRegistrationsTable, guildConfigTable, alphaClaimsTable, tribeTasksTable, recruitmentTable, bountiesTable, shopItemsTable } from "./db";
 import { eq, and, sql } from "drizzle-orm";
 import http from "http";
-import './server';
+import { startServer } from "./server";
 
 const token = process.env.DISCORD_BOT_TOKEN;
 const applicationId = process.env.DISCORD_APPLICATION_ID;
