@@ -75,6 +75,7 @@ export const shopItemsTable = pgTable("shop_items", {
 // --- 7. MASTER SERVER CONFIGURATION ---
 export const guildConfigTable = pgTable("guild_config", {
   guildId: varchar("guild_id", { length: 50 }).primaryKey(),
+  newsChannelId: varchar("news_channel_id", { length: 50 }),
   adminRoleIds: text("admin_role_ids").default(""), // Comma-separated Role IDs
   staffLogChannelId: varchar("staff_log_channel_id", { length: 50 }),
   tribeCategoryId: varchar("tribe_category_id", { length: 50 }),
