@@ -368,6 +368,42 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
             await db.update(tribeRegistrationsTable).set({ tekCoins: r.tekCoins + a }).where(eq(tribeRegistrationsTable.id, r.id));
             return i.editReply(`✅ Transferred ${a} coins.`);
         }
+        // Insert this after the dbCmds check (around line 283)
+if (i.commandName === "join") {
+  const tribeName = i.options.getString("tribe_name", true);
+
+  const m = new ModalBuilder()
+    .setCustomId("modal_join")
+    .setTitle("ArkSentinel Terminal");
+
+  m.addComponents(
+    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(
+      new TextInputBuilder()
+        .setCustomId("tribe")
+        .setLabel("Exact Tribe Name")
+        .setStyle(TextInputStyle.Short)
+        .setValue(tribeName) // Pre-fills the tribe name from the command
+        .setRequired(true)
+    ),
+    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(
+      new TextInputBuilder()
+        .setCustomId("ign")
+        .setLabel("Your IGN")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+    ),
+    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(
+      new TextInputBuilder()
+        .setCustomId("xbox")
+        .setLabel("Xbox Gamertag")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+    )
+  );
+
+  return i.showModal(m);
+}
+      
         if (i.commandName === "my-tribe") {
             const [reg] = await db.select().from(tribeRegistrationsTable).where(and(eq(tribeRegistrationsTable.discordUserId, i.user.id), eq(tribeRegistrationsTable.guildId, i.guildId!))).limit(1);
             if (!reg) return i.editReply("❌ No signature found.");
