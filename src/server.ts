@@ -43,15 +43,17 @@ export function startServer(client: Client) {
             .setTimestamp();
 
           // C. Execute Blasting Protocol
+          
           // Blast to every Tribe HQ
           for (const chanId of channels) {
-            const chan = await client.channels.fetch(chanId!).catch(() => null) as any;
+            const chan = await client.channels.fetch(chanId as string).catch(() => null) as any;
             if (chan && typeof chan.send === 'function') await chan.send({ embeds: [alertEmbed] });
           }
 
-          // Blast to News Channel
-          if (config?.newsChannelId) {
-            const newsChan = await client.channels.fetch(config.newsChannelId).catch(() => null) as any;
+          // Blast to News Channel 
+          // FIX: Changed newsChannelId to infoChannelId to match your DB schema!
+          if (config?.infoChannelId) {
+            const newsChan = await client.channels.fetch(config.infoChannelId).catch(() => null) as any;
             if (newsChan && typeof newsChan.send === 'function') {
                 await newsChan.send({ content: "@everyone", embeds: [alertEmbed] });
             }
@@ -60,6 +62,7 @@ export function startServer(client: Client) {
           res.writeHead(200);
           res.end("Broadcast Complete");
         } catch (e) {
+          console.error("Broadcast Error:", e);
           res.writeHead(500);
           res.end("Internal System Error");
         }
@@ -67,7 +70,8 @@ export function startServer(client: Client) {
     }
   });
 
-  const PORT = process.env.PORT || 3000;
+  // FIX: Updated base port to 10000
+  const PORT = process.env.PORT || 10000;
   server.listen(PORT, () => {
     console.log(`Sentinel Uplink established on port ${PORT}`);
   });
