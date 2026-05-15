@@ -307,7 +307,7 @@ client.on(Events.InteractionCreate, async (i: Interaction) => {
 
     // C. Chat Command Logic
     if (i.isChatInputCommand()) {
-        const dbCmds = ["bal", "shop", "buy", "list-tribes", "setup", "kick-member", "bounty", "my-tribe", "add-item", "remove-item", "leave-tribe", "add-coins", "pay"];
+        const dbCmds = ["bal", "shop", "buy", "list-tribes", "setup", "kick-member", "bounty", "my-tribe", "add-item", "remove-item", "leave-tribe", "add-coins", "pay", "join"];
         if (dbCmds.includes(i.commandName)) await i.deferReply({ ephemeral: true });
 // --- STAFF: ADD SHOP ITEM ---
       if (i.commandName === "add-item") {
